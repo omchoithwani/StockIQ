@@ -1,0 +1,35 @@
+{
+  "name": "stockiq-crm-card",
+  "label": "StockIQ",
+  "uid": "stockiq-crm-card",
+  "scopes": [],
+  "extensions": {
+    "crm": {
+      "cards": [
+        {
+          "file": "app/app.jsx",
+          "type": {
+            "type": "crm-card"
+          },
+          "data": {
+            "fetch": {
+              "targetFunction": "main",
+              "onLoad": true
+            },
+            "objectTypes": [
+              {
+                "name": "deals",
+                "propertiesToSend": ["dealname", "dealstage", "hs_object_id"]
+              }
+            ]
+          },
+          "display": {
+            "properties": []
+          },
+          "title": "📦 Product Availability",
+          "uid": "stockiq-availability-card"
+        }
+      ]
+    }
+  }
+}

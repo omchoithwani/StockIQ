@@ -11,7 +11,7 @@ import {
   hubspot,
 } from '@hubspot/ui-extensions';
 
-const BACKEND_BASE_URL = 'https://your-app.onrender.com';
+const BACKEND_BASE_URL = 'https://stockiq-n93y.onrender.com';
 
 // Status badge config
 function getStatusInfo(requested, onHand, threshold) {

@@ -1,6 +1,6 @@
-defaultPortal: your-portal-name
+defaultPortal: AeroRev
 portals:
-  - name: your-portal-name
-    portalId: YOUR_PORTAL_ID
+  - name: AeroRev
+    portalId: 45587544
     authType: personalaccesstoken
-    personalAccessKey: YOUR_PERSONAL_ACCESS_KEY
+    personalAccessKey: CiRuYTEtZDgyYi0zNjVkLTQyM2ItYjM3Mi0wNGI3NTcxNTkxOTMQ2LjeFRii6OwWKhkABeaRgrHgnnxcLMDbgPNlKYNCeyUAqqONSgNuYTE
