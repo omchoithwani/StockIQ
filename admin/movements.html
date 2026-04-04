@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockIQ — Movements</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-gray-900">📦 StockIQ — Stock Movements</h1>
+      <p id="portalBadge" class="text-sm text-gray-500 mt-1"></p>
+    </div>
+
+    <!-- Nav -->
+    <div class="flex gap-4 mb-6 text-sm">
+      <a id="navProducts" href="#" class="text-gray-500 hover:text-gray-700">Products</a>
+      <a id="navRestock" href="#" class="text-gray-500 hover:text-gray-700">Restock</a>
+      <span class="font-medium text-indigo-600 border-b-2 border-indigo-600 pb-1">Movements</span>
+    </div>
+
+    <!-- Legend -->
+    <div class="flex gap-4 mb-4 text-xs">
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>Restock</span>
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>Sale</span>
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block"></span>Manual Adjust</span>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">Date</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">Product</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">SKU</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">Type</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">Change</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">Qty After</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">Reference</th>
+          </tr>
+        </thead>
+        <tbody id="movementsTable">
+          <tr>
+            <td colspan="7" class="text-center py-12 text-gray-400">Loading movements…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const portalId = params.get('portal_id');
+
+    if (!portalId) {
+      document.body.innerHTML = '<div class="p-8 text-red-600">Missing portal_id parameter.</div>';
+    }
+
+    document.getElementById('portalBadge').textContent = `Portal ID: ${portalId}`;
+    document.getElementById('navProducts').href = `/admin/products?portal_id=${portalId}`;
+    document.getElementById('navRestock').href = `/admin/restock?portal_id=${portalId}`;
+
+    const TYPE_STYLES = {
+      restock:       'bg-green-100 text-green-700',
+      sale:          'bg-blue-100 text-blue-700',
+      manual_adjust: 'bg-yellow-100 text-yellow-700',
+    };
+
+    const TYPE_LABELS = {
+      restock:       'Restock',
+      sale:          'Sale',
+      manual_adjust: 'Manual Adjust',
+    };
+
+    function fmtDate(ts) {
+      if (!ts) return '—';
+      return new Date(Number(ts)).toLocaleString();
+    }
+
+    function fmtChange(val) {
+      const n = Number(val);
+      if (n > 0) return `<span class="text-green-600 font-semibold">+${n}</span>`;
+      if (n < 0) return `<span class="text-red-600 font-semibold">${n}</span>`;
+      return `<span class="text-gray-500">0</span>`;
+    }
+
+    async function loadMovements() {
+      try {
+        const res = await fetch(`/api/stock/${portalId}/movements`);
+        const movements = await res.json();
+        const tbody = document.getElementById('movementsTable');
+
+        if (!movements.length) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center py-12 text-gray-400">No movements recorded yet.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = movements.map(m => {
+          const typeClass = TYPE_STYLES[m.movement_type] || 'bg-gray-100 text-gray-600';
+          const typeLabel = TYPE_LABELS[m.movement_type] || m.movement_type;
+          return `
+          <tr class="border-t border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">${fmtDate(m.created_at)}</td>
+            <td class="px-4 py-3 font-medium text-gray-900">${escHtml(m.product_name || '—')}</td>
+            <td class="px-4 py-3 text-gray-500 font-mono text-xs">${escHtml(m.sku || '—')}</td>
+            <td class="px-4 py-3 text-center">
+              <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${typeClass}">${typeLabel}</span>
+            </td>
+            <td class="px-4 py-3 text-right">${fmtChange(m.quantity_change)}</td>
+            <td class="px-4 py-3 text-right font-semibold text-gray-800">${m.quantity_after}</td>
+            <td class="px-4 py-3 text-gray-400 text-xs truncate max-w-[140px]">${escHtml(m.reference || '—')}</td>
+          </tr>`;
+        }).join('');
+      } catch (err) {
+        document.getElementById('movementsTable').innerHTML =
+          `<tr><td colspan="7" class="text-center py-12 text-red-500">Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    loadMovements();
+  </script>
+</body>
+</html>

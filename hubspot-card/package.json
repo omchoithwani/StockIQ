@@ -1,0 +1,9 @@
+{
+  "name": "stockiq-crm-card",
+  "version": "1.0.0",
+  "description": "StockIQ CRM card — Product availability on Deal records",
+  "private": true,
+  "dependencies": {
+    "@hubspot/ui-extensions": "^0.14.0"
+  }
+}

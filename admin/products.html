@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockIQ — Products</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- Adjust Modal -->
+  <div id="adjustModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
+      <h2 class="text-lg font-semibold mb-4">Adjust Stock</h2>
+      <p class="text-sm text-gray-500 mb-1">Product: <span id="modalProductName" class="font-medium text-gray-800"></span></p>
+      <p class="text-sm text-gray-500 mb-4">Current stock: <span id="modalCurrentQty" class="font-medium text-gray-800"></span></p>
+      <label class="block text-sm font-medium text-gray-700 mb-1">New Quantity</label>
+      <input id="modalNewQty" type="number" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="0" />
+      <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+      <input id="modalReason" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Counted inventory" />
+      <div class="flex gap-2 justify-end">
+        <button onclick="closeModal()" class="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">Cancel</button>
+        <button onclick="submitAdjust()" class="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Save</button>
+      </div>
+      <p id="modalError" class="mt-2 text-sm text-red-500 hidden"></p>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">📦 StockIQ — Products</h1>
+        <p id="portalBadge" class="text-sm text-gray-500 mt-1"></p>
+      </div>
+      <div class="flex gap-2">
+        <button id="syncBtn" onclick="syncProducts()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Sync from HubSpot
+        </button>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div class="flex gap-4 mb-6 text-sm">
+      <span class="font-medium text-indigo-600 border-b-2 border-indigo-600 pb-1">Products</span>
+      <a id="navRestock" href="#" class="text-gray-500 hover:text-gray-700">Restock</a>
+      <a id="navMovements" href="#" class="text-gray-500 hover:text-gray-700">Movements</a>
+    </div>
+
+    <!-- Alerts -->
+    <div id="syncSuccess" class="hidden mb-4 bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-3 text-sm"></div>
+    <div id="syncError" class="hidden mb-4 bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3 text-sm"></div>
+
+    <!-- Stats -->
+    <div id="statsRow" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6"></div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">Product Name</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">SKU</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">Stock</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">Last Updated</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">Action</th>
+          </tr>
+        </thead>
+        <tbody id="productTable">
+          <tr>
+            <td colspan="6" class="text-center py-12 text-gray-400">Loading products…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const portalId = params.get('portal_id');
+    let adjustingProduct = null;
+
+    if (!portalId) {
+      document.body.innerHTML = '<div class="p-8 text-red-600">Missing portal_id parameter. <a href="/oauth/install" class="underline">Install StockIQ</a></div>';
+    }
+
+    document.getElementById('portalBadge').textContent = `Portal ID: ${portalId}`;
+    document.getElementById('navRestock').href = `/admin/restock?portal_id=${portalId}`;
+    document.getElementById('navMovements').href = `/admin/movements?portal_id=${portalId}`;
+
+    function statusBadge(product) {
+      if (!product.is_active) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Inactive</span>';
+      if (product.quantity === 0) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Out of Stock</span>';
+      if (product.quantity < product.low_stock_threshold) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Low Stock</span>';
+      return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">In Stock</span>';
+    }
+
+    function fmtDate(ts) {
+      if (!ts) return '—';
+      return new Date(Number(ts)).toLocaleString();
+    }
+
+    function renderStats(products) {
+      const inStock = products.filter(p => p.is_active && p.quantity >= p.low_stock_threshold).length;
+      const low = products.filter(p => p.is_active && p.quantity > 0 && p.quantity < p.low_stock_threshold).length;
+      const out = products.filter(p => p.is_active && p.quantity === 0).length;
+      const inactive = products.filter(p => !p.is_active).length;
+
+      const stats = [
+        { label: 'In Stock', value: inStock, color: 'text-green-600' },
+        { label: 'Low Stock', value: low, color: 'text-yellow-600' },
+        { label: 'Out of Stock', value: out, color: 'text-red-600' },
+        { label: 'Inactive', value: inactive, color: 'text-gray-500' },
+      ];
+
+      document.getElementById('statsRow').innerHTML = stats.map(s =>
+        `<div class="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+          <p class="text-xs text-gray-500 mb-1">${s.label}</p>
+          <p class="text-2xl font-bold ${s.color}">${s.value}</p>
+        </div>`
+      ).join('');
+    }
+
+    async function loadProducts() {
+      try {
+        const res = await fetch(`/api/stock/${portalId}`);
+        const products = await res.json();
+        renderStats(products);
+
+        const tbody = document.getElementById('productTable');
+        if (!products.length) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-gray-400">No products found. Click "Sync from HubSpot" to import.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = products.map(p => `
+          <tr class="border-t border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3 font-medium text-gray-900">${escHtml(p.name)}</td>
+            <td class="px-4 py-3 text-gray-500 font-mono text-xs">${escHtml(p.sku || '—')}</td>
+            <td class="px-4 py-3 text-right font-semibold text-gray-800">${p.quantity}</td>
+            <td class="px-4 py-3 text-center">${statusBadge(p)}</td>
+            <td class="px-4 py-3 text-gray-400 text-xs">${fmtDate(p.updated_at)}</td>
+            <td class="px-4 py-3 text-center">
+              <button onclick='openModal(${JSON.stringify({id: p.hs_product_id, name: p.name, qty: p.quantity})})'
+                class="px-3 py-1 text-xs rounded-md border border-gray-300 hover:bg-gray-50 text-gray-700">Adjust</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        document.getElementById('productTable').innerHTML =
+          `<tr><td colspan="6" class="text-center py-12 text-red-500">Error loading products: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function syncProducts() {
+      const btn = document.getElementById('syncBtn');
+      btn.disabled = true;
+      btn.textContent = 'Syncing…';
+      document.getElementById('syncSuccess').classList.add('hidden');
+      document.getElementById('syncError').classList.add('hidden');
+      try {
+        const res = await fetch(`/api/stock/${portalId}/sync`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Sync failed');
+        const msg = document.getElementById('syncSuccess');
+        msg.textContent = `Sync complete — ${data.created} created, ${data.updated} updated (${data.total} total products).`;
+        msg.classList.remove('hidden');
+        await loadProducts();
+      } catch (err) {
+        const msg = document.getElementById('syncError');
+        msg.textContent = `Sync error: ${err.message}`;
+        msg.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Sync from HubSpot`;
+      }
+    }
+
+    function openModal(product) {
+      adjustingProduct = product;
+      document.getElementById('modalProductName').textContent = product.name;
+      document.getElementById('modalCurrentQty').textContent = product.qty + ' units';
+      document.getElementById('modalNewQty').value = product.qty;
+      document.getElementById('modalReason').value = '';
+      document.getElementById('modalError').classList.add('hidden');
+      document.getElementById('adjustModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('adjustModal').classList.add('hidden');
+      adjustingProduct = null;
+    }
+
+    async function submitAdjust() {
+      const newQty = parseInt(document.getElementById('modalNewQty').value, 10);
+      const reason = document.getElementById('modalReason').value.trim();
+      const errEl = document.getElementById('modalError');
+
+      if (isNaN(newQty) || newQty < 0) {
+        errEl.textContent = 'Please enter a valid quantity (0 or more).';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/stock/${portalId}/adjust`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hs_product_id: adjustingProduct.id, new_quantity: newQty, reason }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Adjust failed');
+        closeModal();
+        await loadProducts();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
