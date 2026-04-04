@@ -28,15 +28,16 @@ const db = new Proxy(
 
 async function initSchema() {
   const client = getDb();
-  await client.executeMultiple(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS portals (
       portal_id       TEXT PRIMARY KEY,
       access_token    TEXT NOT NULL,
       refresh_token   TEXT NOT NULL,
       token_expires   INTEGER NOT NULL,
       installed_at    INTEGER NOT NULL
-    );
-
+    )
+  `);
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS products (
       id                    TEXT PRIMARY KEY,
       portal_id             TEXT NOT NULL,
@@ -48,8 +49,9 @@ async function initSchema() {
       is_active             INTEGER DEFAULT 1,
       updated_at            INTEGER NOT NULL,
       FOREIGN KEY (portal_id) REFERENCES portals(portal_id)
-    );
-
+    )
+  `);
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS stock_movements (
       id              TEXT PRIMARY KEY,
       portal_id       TEXT NOT NULL,
@@ -60,7 +62,7 @@ async function initSchema() {
       quantity_after  INTEGER NOT NULL,
       reference       TEXT,
       created_at      INTEGER NOT NULL
-    );
+    )
   `);
   console.log('[db] Schema initialised');
 }
