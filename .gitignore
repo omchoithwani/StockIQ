@@ -1,3 +1,4 @@
 node_modules/
 .env
 *.log
+hubspot-card/hubspot.config.yml

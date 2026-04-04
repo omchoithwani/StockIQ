@@ -3,4 +3,4 @@ portals:
   - name: AeroRev
     portalId: 45587544
     authType: personalaccesstoken
-    personalAccessKey: CiRuYTEtZDgyYi0zNjVkLTQyM2ItYjM3Mi0wNGI3NTcxNTkxOTMQ2LjeFRii6OwWKhkABeaRgrHgnnxcLMDbgPNlKYNCeyUAqqONSgNuYTE
+    personalAccessKey: YOUR_PERSONAL_ACCESS_KEY
