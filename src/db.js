@@ -64,6 +64,14 @@ async function initSchema() {
       created_at      INTEGER NOT NULL
     )
   `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS portal_settings (
+      portal_id         TEXT PRIMARY KEY,
+      trigger_stages    TEXT NOT NULL DEFAULT '[]',
+      updated_at        INTEGER NOT NULL,
+      FOREIGN KEY (portal_id) REFERENCES portals(portal_id)
+    )
+  `);
   console.log('[db] Schema initialised');
 }
 

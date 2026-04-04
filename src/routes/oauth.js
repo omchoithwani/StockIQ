@@ -9,6 +9,7 @@ const SCOPES = [
   'crm.objects.deals.read',
   'crm.objects.line_items.read',
   'crm.objects.products.read',
+  'crm.schemas.deals.read',
   'oauth',
 ].join(' ');
 

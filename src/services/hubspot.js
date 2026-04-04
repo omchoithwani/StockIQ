@@ -107,4 +107,32 @@ async function getLineItemsForDeal(portalId, dealId) {
   return lineItems;
 }
 
-module.exports = { getValidToken, getProductsFromHubSpot, getLineItemsForDeal };
+/**
+ * Fetches all deal pipelines and their stages from HubSpot.
+ * Returns a flat list of { pipelineId, pipelineLabel, stageId, stageLabel } objects.
+ */
+async function getDealPipelinesAndStages(portalId) {
+  const token = await getValidToken(portalId);
+
+  const response = await axios.get(`${HUBSPOT_API}/crm/v3/pipelines/deals`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const pipelines = response.data.results || [];
+  const stages = [];
+
+  for (const pipeline of pipelines) {
+    for (const stage of pipeline.stages || []) {
+      stages.push({
+        pipelineId: pipeline.id,
+        pipelineLabel: pipeline.label,
+        stageId: stage.id,
+        stageLabel: stage.label,
+      });
+    }
+  }
+
+  return stages;
+}
+
+module.exports = { getValidToken, getProductsFromHubSpot, getLineItemsForDeal, getDealPipelinesAndStages };

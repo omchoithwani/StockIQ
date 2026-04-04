@@ -46,6 +46,7 @@
       <span class="font-medium text-indigo-600 border-b-2 border-indigo-600 pb-1">Products</span>
       <a id="navRestock" href="#" class="text-gray-500 hover:text-gray-700">Restock</a>
       <a id="navMovements" href="#" class="text-gray-500 hover:text-gray-700">Movements</a>
+      <a id="navSettings" href="#" class="text-gray-500 hover:text-gray-700">Settings</a>
     </div>
 
     <!-- Alerts -->
@@ -89,6 +90,7 @@
     document.getElementById('portalBadge').textContent = `Portal ID: ${portalId}`;
     document.getElementById('navRestock').href = `/admin/restock?portal_id=${portalId}`;
     document.getElementById('navMovements').href = `/admin/movements?portal_id=${portalId}`;
+    document.getElementById('navSettings').href = `/admin/settings?portal_id=${portalId}`;
 
     function statusBadge(product) {
       if (!product.is_active) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Inactive</span>';

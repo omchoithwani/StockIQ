@@ -19,6 +19,7 @@
       <a id="navProducts" href="#" class="text-gray-500 hover:text-gray-700">Products</a>
       <span class="font-medium text-indigo-600 border-b-2 border-indigo-600 pb-1">Restock</span>
       <a id="navMovements" href="#" class="text-gray-500 hover:text-gray-700">Movements</a>
+      <a id="navSettings" href="#" class="text-gray-500 hover:text-gray-700">Settings</a>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -95,6 +96,7 @@
     document.getElementById('portalBadge').textContent = `Portal ID: ${portalId}`;
     document.getElementById('navProducts').href = `/admin/products?portal_id=${portalId}`;
     document.getElementById('navMovements').href = `/admin/movements?portal_id=${portalId}`;
+    document.getElementById('navSettings').href = `/admin/settings?portal_id=${portalId}`;
 
     function handleSearch() {
       clearTimeout(searchTimer);

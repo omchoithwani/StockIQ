@@ -17,4 +17,8 @@ router.get('/movements', (req, res) => {
   res.sendFile(path.join(ADMIN_DIR, 'movements.html'));
 });
 
+router.get('/settings', (req, res) => {
+  res.sendFile(path.join(ADMIN_DIR, 'settings.html'));
+});
+
 module.exports = router;
