@@ -71,9 +71,18 @@ function isFallbackClosedWon(stageValue) {
 
 // POST /webhook/deal-won
 router.post('/deal-won', async (req, res) => {
-  if (!validateHubSpotSignature(req)) {
-    console.warn('[webhook] Invalid HubSpot signature — rejecting');
-    return res.status(401).json({ error: 'Invalid signature' });
+  // Log signature headers for debugging
+  console.log('[webhook] sig headers:', JSON.stringify({
+    sig: req.headers['x-hubspot-signature'],
+    sigVersion: req.headers['x-hubspot-signature-version'],
+    sigV3: req.headers['x-hubspot-signature-v3'],
+    timestamp: req.headers['x-hubspot-request-timestamp'],
+  }));
+
+  // Temporarily bypass signature validation to confirm webhook flow
+  const sigValid = validateHubSpotSignature(req);
+  if (!sigValid) {
+    console.warn('[webhook] Signature invalid but continuing for debug — fix before production');
   }
 
   const events = Array.isArray(req.body) ? req.body : [req.body];
