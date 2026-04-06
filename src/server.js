@@ -12,6 +12,15 @@ const settingsRoutes = require('./routes/settings');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// CORS — required for HubSpot UI Extensions hubspot.fetch() calls
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 // Parse JSON — webhook route needs raw body access for signature verification,
 // but express.json() is fine here since we re-compute the hash from parsed body.
 app.use(express.json());
