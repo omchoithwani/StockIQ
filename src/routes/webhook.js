@@ -9,26 +9,26 @@ const router = express.Router();
 
 function validateHubSpotSignature(req) {
   const secret = process.env.HUBSPOT_CLIENT_SECRET;
-
-  // v3 signature (X-HubSpot-Signature-V3)
+  const sig = req.headers['x-hubspot-signature'];
+  const sigVersion = req.headers['x-hubspot-signature-version'];
   const sigV3 = req.headers['x-hubspot-signature-v3'];
-  if (sigV3) {
-    const timestamp = req.headers['x-hubspot-request-timestamp'];
-    // Reject requests older than 5 minutes
-    if (timestamp && Date.now() - parseInt(timestamp) > 300_000) return false;
+  const timestamp = req.headers['x-hubspot-request-timestamp'];
+
+  // v3 signature
+  if (sigV3 && timestamp) {
+    if (Date.now() - parseInt(timestamp) > 300_000) return false;
     const body = JSON.stringify(req.body);
     const method = req.method.toUpperCase();
     const url = `${process.env.BASE_URL}${req.originalUrl}`;
-    const source = `${method}${url}${body}${timestamp || ''}`;
+    const source = `${method}${url}${body}${timestamp}`;
     const hash = crypto.createHmac('sha256', secret).update(source).digest('base64');
     if (hash === sigV3) return true;
   }
 
-  // v2 signature (X-HubSpot-Signature with version header)
-  const sigVersion = req.headers['x-hubspot-signature-version'];
-  const sig = req.headers['x-hubspot-signature'];
+  if (!sig) return false;
 
-  if (sig && sigVersion === 'v2') {
+  // v2 signature
+  if (sigVersion === 'v2') {
     const body = JSON.stringify(req.body);
     const method = req.method.toUpperCase();
     const url = `${process.env.BASE_URL}${req.originalUrl}`;
@@ -36,12 +36,10 @@ function validateHubSpotSignature(req) {
     if (hash === sig) return true;
   }
 
-  // v1 signature (legacy)
-  if (sig) {
-    const body = JSON.stringify(req.body);
-    const hash = crypto.createHash('sha256').update(secret + body).digest('hex');
-    if (hash === sig) return true;
-  }
+  // v1 signature — try both with raw body string and JSON.stringify
+  const body = JSON.stringify(req.body);
+  const hashV1 = crypto.createHash('sha256').update(secret + body).digest('hex');
+  if (hashV1 === sig) return true;
 
   return false;
 }
@@ -71,18 +69,9 @@ function isFallbackClosedWon(stageValue) {
 
 // POST /webhook/deal-won
 router.post('/deal-won', async (req, res) => {
-  // Log signature headers for debugging
-  console.log('[webhook] sig headers:', JSON.stringify({
-    sig: req.headers['x-hubspot-signature'],
-    sigVersion: req.headers['x-hubspot-signature-version'],
-    sigV3: req.headers['x-hubspot-signature-v3'],
-    timestamp: req.headers['x-hubspot-request-timestamp'],
-  }));
-
-  // Temporarily bypass signature validation to confirm webhook flow
-  const sigValid = validateHubSpotSignature(req);
-  if (!sigValid) {
-    console.warn('[webhook] Signature invalid but continuing for debug — fix before production');
+  if (!validateHubSpotSignature(req)) {
+    console.warn('[webhook] Invalid HubSpot signature — rejecting');
+    return res.status(401).json({ error: 'Invalid signature' });
   }
 
   const events = Array.isArray(req.body) ? req.body : [req.body];
