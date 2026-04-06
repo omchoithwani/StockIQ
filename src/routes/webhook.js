@@ -8,16 +8,42 @@ require('dotenv').config();
 const router = express.Router();
 
 function validateHubSpotSignature(req) {
-  const signature = req.headers['x-hubspot-signature'];
-  if (!signature) return false;
+  const secret = process.env.HUBSPOT_CLIENT_SECRET;
 
-  const body = JSON.stringify(req.body);
-  const hash = crypto
-    .createHash('sha256')
-    .update(process.env.HUBSPOT_CLIENT_SECRET + body)
-    .digest('hex');
+  // v3 signature (X-HubSpot-Signature-V3)
+  const sigV3 = req.headers['x-hubspot-signature-v3'];
+  if (sigV3) {
+    const timestamp = req.headers['x-hubspot-request-timestamp'];
+    // Reject requests older than 5 minutes
+    if (timestamp && Date.now() - parseInt(timestamp) > 300_000) return false;
+    const body = JSON.stringify(req.body);
+    const method = req.method.toUpperCase();
+    const url = `${process.env.BASE_URL}${req.originalUrl}`;
+    const source = `${method}${url}${body}${timestamp || ''}`;
+    const hash = crypto.createHmac('sha256', secret).update(source).digest('base64');
+    if (hash === sigV3) return true;
+  }
 
-  return hash === signature;
+  // v2 signature (X-HubSpot-Signature with version header)
+  const sigVersion = req.headers['x-hubspot-signature-version'];
+  const sig = req.headers['x-hubspot-signature'];
+
+  if (sig && sigVersion === 'v2') {
+    const body = JSON.stringify(req.body);
+    const method = req.method.toUpperCase();
+    const url = `${process.env.BASE_URL}${req.originalUrl}`;
+    const hash = crypto.createHash('sha256').update(secret + method + url + body).digest('hex');
+    if (hash === sig) return true;
+  }
+
+  // v1 signature (legacy)
+  if (sig) {
+    const body = JSON.stringify(req.body);
+    const hash = crypto.createHash('sha256').update(secret + body).digest('hex');
+    if (hash === sig) return true;
+  }
+
+  return false;
 }
 
 /**
