@@ -17,48 +17,33 @@
     </div>
 
     <div class="bg-gray-800 rounded-2xl border border-gray-700 p-8">
-      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+
+      <script>
+        const params = new URLSearchParams(location.search);
+        const error = params.get('error');
+        if (error) {
+          const msgs = {
+            invalid: 'Incorrect password.',
+            session: 'Session error — please try again.',
+            not_configured: 'SUPERADMIN_PASSWORD is not set on the server.',
+          };
+          document.write(`<div class="mb-4 bg-red-900/40 border border-red-700 text-red-300 rounded-xl px-4 py-3 text-sm">${msgs[error] || 'Login failed.'}</div>`);
+        }
+      </script>
+
+      <form method="POST" action="/superadmin/login" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-1">Password</label>
-          <input id="password" type="password" required placeholder="Admin password"
+          <input name="password" type="password" required placeholder="Admin password" autofocus
             class="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
 
-        <div id="errorMsg" class="hidden bg-red-900/40 border border-red-700 text-red-300 rounded-xl px-4 py-3 text-sm"></div>
-
-        <button type="submit" id="submitBtn"
-          class="w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+        <button type="submit"
+          class="w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors">
           Sign In
         </button>
       </form>
     </div>
   </div>
-
-  <script>
-    async function handleLogin(e) {
-      e.preventDefault();
-      const btn = document.getElementById('submitBtn');
-      const errEl = document.getElementById('errorMsg');
-      errEl.classList.add('hidden');
-      btn.disabled = true;
-      btn.textContent = 'Signing in…';
-
-      try {
-        const res = await fetch('/superadmin/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: document.getElementById('password').value }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Invalid password');
-        window.location.href = '/superadmin';
-      } catch (err) {
-        errEl.textContent = err.message;
-        errEl.classList.remove('hidden');
-        btn.disabled = false;
-        btn.textContent = 'Sign In';
-      }
-    }
-  </script>
 </body>
 </html>

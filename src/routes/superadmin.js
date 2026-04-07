@@ -16,12 +16,12 @@ router.get('/login', (req, res) => {
 router.post('/login', (req, res) => {
   const { password } = req.body;
   const adminPassword = process.env.SUPERADMIN_PASSWORD;
-  if (!adminPassword) return res.status(500).json({ error: 'SUPERADMIN_PASSWORD not set' });
-  if (password !== adminPassword) return res.status(401).json({ error: 'Invalid password' });
+  if (!adminPassword) return res.redirect('/superadmin/login?error=not_configured');
+  if (password !== adminPassword) return res.redirect('/superadmin/login?error=invalid');
   req.session.isSuperAdmin = true;
   req.session.save((err) => {
-    if (err) return res.status(500).json({ error: 'Session error' });
-    res.json({ ok: true });
+    if (err) return res.redirect('/superadmin/login?error=session');
+    res.redirect('/superadmin');
   });
 });
 
