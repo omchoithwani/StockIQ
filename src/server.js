@@ -9,6 +9,7 @@ const webhookRoutes = require('./routes/webhook');
 const adminRoutes = require('./routes/admin');
 const settingsRoutes = require('./routes/settings');
 const reservationsRoutes = require('./routes/reservations');
+const slackRoutes = require('./routes/slack');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -41,6 +42,7 @@ app.use('/oauth', oauthRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/reservations', reservationsRoutes);
+app.use('/slack', slackRoutes);
 app.use('/webhook', webhookRoutes);
 app.use('/admin', adminRoutes);
 

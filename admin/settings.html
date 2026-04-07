@@ -67,55 +67,63 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
       <h2 class="text-base font-semibold text-gray-900 mb-1">Stock Alerts</h2>
       <p class="text-sm text-gray-500 mb-5">
-        Get notified by email and/or Slack when a product goes low or out of stock.
+        Get notified when a product goes low or out of stock. Alerts fire automatically after every stock change.
       </p>
 
-      <div class="space-y-4">
-        <!-- Email via Resend -->
-        <div class="border border-gray-200 rounded-lg p-4">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-sm font-semibold text-gray-800">📧 Email Alerts via Resend</span>
-            <a href="https://resend.com" target="_blank" rel="noopener" class="text-xs text-indigo-500 hover:underline">resend.com</a>
-          </div>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Resend API Key</label>
-              <input id="resendApiKey" type="password" placeholder="re_xxxxxxxxxxxx"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <p class="text-xs text-gray-400 mt-1">Get your API key from the Resend dashboard → API Keys.</p>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Send Alerts To (email)</label>
-              <input id="alertEmail" type="email" placeholder="team@yourcompany.com"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">From Email (optional)</label>
-              <input id="alertFromEmail" type="text" placeholder="StockIQ <alerts@yourdomain.com>"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <p class="text-xs text-gray-400 mt-1">Leave blank to use Resend's default. Add your domain in Resend to use a custom from address.</p>
-            </div>
-          </div>
-        </div>
+      <div class="space-y-3">
 
-        <!-- Slack -->
-        <div class="border border-gray-200 rounded-lg p-4">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-sm font-semibold text-gray-800">💬 Slack Alerts</span>
+        <!-- Email row -->
+        <div id="emailRow" class="border border-gray-200 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">📧</span>
+              <div>
+                <p class="text-sm font-semibold text-gray-800">Email Alerts</p>
+                <p id="emailSubtitle" class="text-xs text-gray-400">Enter your email to receive alerts</p>
+              </div>
+            </div>
+            <!-- Toggle -->
+            <button id="emailToggle" onclick="toggleEmail()" type="button"
+              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none bg-gray-200">
+              <span id="emailToggleThumb" class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-1"></span>
+            </button>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Slack Incoming Webhook URL</label>
-            <input id="slackWebhookUrl" type="text" placeholder="https://hooks.slack.com/services/..."
+          <!-- Email input — shown when toggled on -->
+          <div id="emailInputArea" class="hidden">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Send alerts to</label>
+            <input id="alertEmail" type="email" placeholder="team@yourcompany.com"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <p class="text-xs text-gray-400 mt-1">
-              Create a Slack app → Incoming Webhooks → Add to a channel → copy the URL here.
-              <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener" class="text-indigo-500 hover:underline">Setup guide</a>
+            <p id="resendUnconfigured" class="hidden mt-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+              ⚠️ The app owner needs to set a <code>RESEND_API_KEY</code> environment variable on Render for email alerts to work.
             </p>
           </div>
         </div>
 
-        <!-- Test button -->
-        <div class="flex items-center gap-3">
+        <!-- Slack row -->
+        <div id="slackRow" class="border border-gray-200 rounded-xl p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">💬</span>
+              <div>
+                <p class="text-sm font-semibold text-gray-800">Slack Alerts</p>
+                <p id="slackSubtitle" class="text-xs text-gray-400">Connect your Slack workspace</p>
+              </div>
+            </div>
+            <!-- Toggle — only shown when connected -->
+            <button id="slackToggle" onclick="toggleSlack()" type="button"
+              class="hidden relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none bg-gray-200">
+              <span id="slackToggleThumb" class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-1"></span>
+            </button>
+          </div>
+          <!-- Connect / Disconnect -->
+          <div id="slackActions" class="mt-3"></div>
+          <p id="slackUnconfigured" class="hidden mt-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            ⚠️ The app owner needs to set <code>SLACK_CLIENT_ID</code> and <code>SLACK_CLIENT_SECRET</code> on Render to enable Slack.
+          </p>
+        </div>
+
+        <!-- Test -->
+        <div class="flex items-center gap-3 pt-1">
           <button onclick="testAlerts()" id="testBtn"
             class="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50">
             Send Test Notification
@@ -183,11 +191,25 @@
         document.getElementById('probSlider').value = prob;
         document.getElementById('probInput').value = prob;
 
-        // Set alert fields
-        document.getElementById('resendApiKey').value = data.resendApiKey || '';
+        // Email alerts
+        setEmailToggle(data.alertEmailEnabled, data.alertEmail);
         document.getElementById('alertEmail').value = data.alertEmail || '';
-        document.getElementById('alertFromEmail').value = data.alertFromEmail || '';
-        document.getElementById('slackWebhookUrl').value = data.slackWebhookUrl || '';
+        if (!data.resendConfigured) {
+          document.getElementById('resendUnconfigured').classList.remove('hidden');
+        }
+
+        // Slack alerts
+        renderSlackState(data.slackEnabled, data.slackChannelName, data.slackConfigured);
+
+        // Check URL for slack connect/error result
+        const urlParams = new URLSearchParams(location.search);
+        if (urlParams.get('slack') === 'connected') {
+          showSuccess('Slack connected successfully!');
+          history.replaceState({}, '', `/admin/settings?portal_id=${portalId}`);
+        } else if (urlParams.get('slack') === 'error') {
+          showError('Slack connection failed. Please try again.');
+          history.replaceState({}, '', `/admin/settings?portal_id=${portalId}`);
+        }
 
         document.getElementById('loadingState').classList.add('hidden');
         document.getElementById('pipelinesContainer').classList.remove('hidden');
@@ -262,28 +284,140 @@
           body: JSON.stringify({
             triggerStages,
             reservationProbability,
-            resendApiKey: document.getElementById('resendApiKey').value.trim(),
+            alertEmailEnabled: emailEnabled,
             alertEmail: document.getElementById('alertEmail').value.trim(),
-            alertFromEmail: document.getElementById('alertFromEmail').value.trim(),
-            slackWebhookUrl: document.getElementById('slackWebhookUrl').value.trim(),
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Save failed');
 
         savedTriggerStages = new Set(triggerStages);
-        successEl.textContent = `Settings saved. Reservations trigger at ${reservationProbability}% probability. ` +
-          (triggerStages.length === 0
-            ? 'No stages selected for stock decrement.'
-            : `Stock decrements on ${triggerStages.length} selected stage(s).`);
+        showSuccess(`Settings saved.`);
         successEl.classList.remove('hidden');
       } catch (err) {
-        errorEl.textContent = err.message;
-        errorEl.classList.remove('hidden');
+        showError(err.message);
       } finally {
         btn.disabled = false;
         btn.textContent = 'Save Settings';
       }
+    }
+
+    // --- Email toggle ---
+    let emailEnabled = false;
+
+    function setEmailToggle(enabled, email) {
+      emailEnabled = !!enabled;
+      const toggle = document.getElementById('emailToggle');
+      const thumb = document.getElementById('emailToggleThumb');
+      const inputArea = document.getElementById('emailInputArea');
+      const subtitle = document.getElementById('emailSubtitle');
+      if (emailEnabled) {
+        toggle.classList.remove('bg-gray-200');
+        toggle.classList.add('bg-indigo-600');
+        thumb.classList.remove('translate-x-1');
+        thumb.classList.add('translate-x-6');
+        inputArea.classList.remove('hidden');
+        subtitle.textContent = email || 'Enter your email below';
+      } else {
+        toggle.classList.add('bg-gray-200');
+        toggle.classList.remove('bg-indigo-600');
+        thumb.classList.add('translate-x-1');
+        thumb.classList.remove('translate-x-6');
+        inputArea.classList.add('hidden');
+        subtitle.textContent = 'Toggle on to receive email alerts';
+      }
+    }
+
+    function toggleEmail() {
+      setEmailToggle(!emailEnabled, document.getElementById('alertEmail').value);
+    }
+
+    // --- Slack state ---
+    let slackEnabled = false;
+
+    function renderSlackState(enabled, channelName, configured) {
+      slackEnabled = !!enabled;
+      const subtitle = document.getElementById('slackSubtitle');
+      const actions = document.getElementById('slackActions');
+      const toggle = document.getElementById('slackToggle');
+      const thumb = document.getElementById('slackToggleThumb');
+      const unconfigured = document.getElementById('slackUnconfigured');
+
+      if (!configured) {
+        unconfigured.classList.remove('hidden');
+        actions.innerHTML = '';
+        toggle.classList.add('hidden');
+        subtitle.textContent = 'Not available';
+        return;
+      }
+
+      if (channelName) {
+        subtitle.textContent = `Connected to #${channelName}`;
+        toggle.classList.remove('hidden');
+        if (slackEnabled) {
+          toggle.classList.remove('bg-gray-200');
+          toggle.classList.add('bg-indigo-600');
+          thumb.classList.remove('translate-x-1');
+          thumb.classList.add('translate-x-6');
+        } else {
+          toggle.classList.add('bg-gray-200');
+          toggle.classList.remove('bg-indigo-600');
+          thumb.classList.add('translate-x-1');
+          thumb.classList.remove('translate-x-6');
+        }
+        actions.innerHTML = `
+          <button onclick="disconnectSlack()"
+            class="text-xs text-red-500 hover:underline">Disconnect Slack</button>
+        `;
+      } else {
+        subtitle.textContent = 'Connect your Slack workspace';
+        toggle.classList.add('hidden');
+        actions.innerHTML = `
+          <a href="/slack/connect?portal_id=${portalId}"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-[#4A154B] text-white text-sm font-medium rounded-lg hover:opacity-90">
+            <svg width="16" height="16" viewBox="0 0 122.8 122.8" fill="currentColor"><path d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9zm6.5 0c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z" fill="#E01E5A"/><path d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2zm0 6.5c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z" fill="#36C5F0"/><path d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2zm-6.5 0c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z" fill="#2EB67D"/><path d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9zm0-6.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z" fill="#ECB22E"/></svg>
+            Connect to Slack
+          </a>
+        `;
+      }
+    }
+
+    async function toggleSlack() {
+      slackEnabled = !slackEnabled;
+      const thumb = document.getElementById('slackToggleThumb');
+      const toggle = document.getElementById('slackToggle');
+      if (slackEnabled) {
+        toggle.classList.remove('bg-gray-200'); toggle.classList.add('bg-indigo-600');
+        thumb.classList.remove('translate-x-1'); thumb.classList.add('translate-x-6');
+      } else {
+        toggle.classList.add('bg-gray-200'); toggle.classList.remove('bg-indigo-600');
+        thumb.classList.add('translate-x-1'); thumb.classList.remove('translate-x-6');
+      }
+      await fetch(`/api/settings/${portalId}/slack-toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: slackEnabled }),
+      });
+    }
+
+    async function disconnectSlack() {
+      if (!confirm('Disconnect Slack? You can reconnect at any time.')) return;
+      await fetch(`/slack/disconnect?portal_id=${portalId}`, { method: 'POST' });
+      renderSlackState(false, null, true);
+    }
+
+    function showSuccess(msg) {
+      const el = document.getElementById('successMsg');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      document.getElementById('errorMsg').classList.add('hidden');
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      document.getElementById('successMsg').classList.add('hidden');
     }
 
     async function testAlerts() {

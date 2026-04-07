@@ -77,9 +77,12 @@ async function initSchema() {
   const migrations = [
     `ALTER TABLE portal_settings ADD COLUMN reservation_probability INTEGER DEFAULT 80`,
     `ALTER TABLE portal_settings ADD COLUMN alert_email TEXT`,
-    `ALTER TABLE portal_settings ADD COLUMN alert_from_email TEXT`,
+    `ALTER TABLE portal_settings ADD COLUMN alert_email_enabled INTEGER DEFAULT 0`,
     `ALTER TABLE portal_settings ADD COLUMN resend_api_key TEXT`,
+    `ALTER TABLE portal_settings ADD COLUMN alert_from_email TEXT`,
     `ALTER TABLE portal_settings ADD COLUMN slack_webhook_url TEXT`,
+    `ALTER TABLE portal_settings ADD COLUMN slack_channel_name TEXT`,
+    `ALTER TABLE portal_settings ADD COLUMN slack_enabled INTEGER DEFAULT 0`,
   ];
   for (const sql of migrations) {
     try {

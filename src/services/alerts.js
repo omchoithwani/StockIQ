@@ -3,9 +3,6 @@ const { db } = require('../db');
 
 const RESEND_API = 'https://api.resend.com/emails';
 
-/**
- * Load alert config for a portal.
- */
 async function getAlertConfig(portalId) {
   const result = await db.execute({
     sql: 'SELECT * FROM portal_settings WHERE portal_id = ?',
@@ -14,151 +11,121 @@ async function getAlertConfig(portalId) {
   return result.rows[0] || null;
 }
 
-/**
- * Send an email alert via Resend.
- */
-async function sendEmail(apiKey, fromEmail, toEmail, subject, html) {
+async function sendEmail(toEmail, subject, html) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.ALERT_FROM_EMAIL || 'StockIQ <onboarding@resend.dev>';
+  if (!apiKey) throw new Error('RESEND_API_KEY not set on server');
+
   await axios.post(
     RESEND_API,
-    {
-      from: fromEmail || 'StockIQ <onboarding@resend.dev>',
-      to: [toEmail],
-      subject,
-      html,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    }
+    { from: fromEmail, to: [toEmail], subject, html },
+    { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
   );
 }
 
-/**
- * Send a Slack message via incoming webhook URL.
- */
-async function sendSlack(webhookUrl, text, blocks) {
-  await axios.post(webhookUrl, { text, blocks });
+async function sendSlack(webhookUrl, text) {
+  await axios.post(webhookUrl, { text });
 }
 
-/**
- * Send a low stock alert (available units below threshold).
- */
+function buildLowStockHtml(product, portalId) {
+  const available = product.available ?? product.quantity;
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+      <h2 style="color:#d97706">⚠️ Low Stock Alert</h2>
+      <p><strong>${product.name}</strong> is running low and may need restocking.</p>
+      <table style="border-collapse:collapse;width:100%;margin:16px 0">
+        <tr><td style="padding:8px 12px;background:#fafafa;border:1px solid #e5e7eb;color:#6b7280">SKU</td><td style="padding:8px 12px;border:1px solid #e5e7eb">${product.sku || '—'}</td></tr>
+        <tr><td style="padding:8px 12px;background:#fafafa;border:1px solid #e5e7eb;color:#6b7280">On Hand</td><td style="padding:8px 12px;border:1px solid #e5e7eb">${product.quantity}</td></tr>
+        <tr><td style="padding:8px 12px;background:#fafafa;border:1px solid #e5e7eb;color:#6b7280">Reserved</td><td style="padding:8px 12px;border:1px solid #e5e7eb">${product.reserved ?? 0}</td></tr>
+        <tr><td style="padding:8px 12px;background:#fafafa;border:1px solid #e5e7eb;color:#6b7280;font-weight:600">Available</td><td style="padding:8px 12px;border:1px solid #e5e7eb;color:#d97706;font-weight:600">${available}</td></tr>
+        <tr><td style="padding:8px 12px;background:#fafafa;border:1px solid #e5e7eb;color:#6b7280">Threshold</td><td style="padding:8px 12px;border:1px solid #e5e7eb">${product.low_stock_threshold ?? 10}</td></tr>
+      </table>
+      <p style="color:#6b7280;font-size:12px">Sent by StockIQ · Portal ${portalId}</p>
+    </div>`;
+}
+
+function buildOutOfStockHtml(product, dealId, portalId) {
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+      <h2 style="color:#dc2626">🚨 Out of Stock</h2>
+      <p><strong>${product.name}</strong> has reached 0 units after a deal was closed.</p>
+      <table style="border-collapse:collapse;width:100%;margin:16px 0">
+        <tr><td style="padding:8px 12px;background:#fafafa;border:1px solid #e5e7eb;color:#6b7280">SKU</td><td style="padding:8px 12px;border:1px solid #e5e7eb">${product.sku || '—'}</td></tr>
+        <tr><td style="padding:8px 12px;background:#fafafa;border:1px solid #e5e7eb;color:#6b7280;font-weight:600">Stock Remaining</td><td style="padding:8px 12px;border:1px solid #e5e7eb;color:#dc2626;font-weight:600">0</td></tr>
+        ${dealId ? `<tr><td style="padding:8px 12px;background:#fafafa;border:1px solid #e5e7eb;color:#6b7280">Triggered by Deal</td><td style="padding:8px 12px;border:1px solid #e5e7eb">${dealId}</td></tr>` : ''}
+      </table>
+      <p>Please restock this product as soon as possible.</p>
+      <p style="color:#6b7280;font-size:12px">Sent by StockIQ · Portal ${portalId}</p>
+    </div>`;
+}
+
 async function sendLowStockAlert(portalId, product) {
   const config = await getAlertConfig(portalId);
   if (!config) return;
 
-  const { resend_api_key, alert_email, alert_from_email, slack_webhook_url } = config;
-
-  const productName = product.name;
   const available = product.available ?? product.quantity;
-  const onHand = product.quantity;
-  const reserved = product.reserved ?? 0;
-  const threshold = product.low_stock_threshold ?? 10;
-  const subject = `⚠️ Low Stock Alert: ${productName}`;
+  const name = product.name;
+  const subject = `⚠️ Low Stock: ${name} (${available} units available)`;
+  const slackText = `⚠️ *Low Stock Alert* — *${name}*\nSKU: ${product.sku || '—'} | On Hand: ${product.quantity} | Reserved: ${product.reserved ?? 0} | *Available: ${available}* (threshold: ${product.low_stock_threshold ?? 10})`;
 
-  const html = `
-    <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
-      <h2 style="color:#d97706">⚠️ Low Stock Alert</h2>
-      <p><strong>${productName}</strong> is running low.</p>
-      <table style="border-collapse:collapse;width:100%">
-        <tr><td style="padding:6px 12px;background:#fafafa;border:1px solid #e5e7eb">SKU</td><td style="padding:6px 12px;border:1px solid #e5e7eb">${product.sku || '—'}</td></tr>
-        <tr><td style="padding:6px 12px;background:#fafafa;border:1px solid #e5e7eb">On Hand</td><td style="padding:6px 12px;border:1px solid #e5e7eb">${onHand}</td></tr>
-        <tr><td style="padding:6px 12px;background:#fafafa;border:1px solid #e5e7eb">Reserved</td><td style="padding:6px 12px;border:1px solid #e5e7eb">${reserved}</td></tr>
-        <tr><td style="padding:6px 12px;background:#fafafa;border:1px solid #e5e7eb"><strong>Available</strong></td><td style="padding:6px 12px;border:1px solid #e5e7eb;color:#d97706"><strong>${available}</strong></td></tr>
-        <tr><td style="padding:6px 12px;background:#fafafa;border:1px solid #e5e7eb">Threshold</td><td style="padding:6px 12px;border:1px solid #e5e7eb">${threshold}</td></tr>
-      </table>
-      <p style="color:#6b7280;font-size:12px;margin-top:24px">Sent by StockIQ · Portal ${portalId}</p>
-    </div>
-  `;
-
-  const slackText = `⚠️ *Low Stock Alert* — *${productName}*\nSKU: ${product.sku || '—'} | On Hand: ${onHand} | Reserved: ${reserved} | *Available: ${available}* (threshold: ${threshold})`;
-
-  if (resend_api_key && alert_email) {
+  if (config.alert_email_enabled && config.alert_email) {
     try {
-      await sendEmail(resend_api_key, alert_from_email, alert_email, subject, html);
-      console.log(`[alerts] Low stock email sent for ${productName}`);
+      await sendEmail(config.alert_email, subject, buildLowStockHtml(product, portalId));
+      console.log(`[alerts] Low stock email sent for ${name}`);
     } catch (err) {
-      console.error(`[alerts] Email failed for ${productName}:`, err.response?.data || err.message);
+      console.error(`[alerts] Email failed:`, err.response?.data || err.message);
     }
   }
 
-  if (slack_webhook_url) {
+  if (config.slack_enabled && config.slack_webhook_url) {
     try {
-      await sendSlack(slack_webhook_url, slackText);
-      console.log(`[alerts] Slack alert sent for ${productName}`);
+      await sendSlack(config.slack_webhook_url, slackText);
+      console.log(`[alerts] Slack low stock alert sent for ${name}`);
     } catch (err) {
-      console.error(`[alerts] Slack failed for ${productName}:`, err.message);
+      console.error(`[alerts] Slack failed:`, err.message);
     }
   }
 }
 
-/**
- * Send an out-of-stock alert (after a deal is won and stock hit 0).
- */
 async function sendOutOfStockAlert(portalId, product, dealId) {
   const config = await getAlertConfig(portalId);
   if (!config) return;
 
-  const { resend_api_key, alert_email, alert_from_email, slack_webhook_url } = config;
+  const name = product.name;
+  const subject = `🚨 Out of Stock: ${name}`;
+  const slackText = `🚨 *Out of Stock* — *${name}*\nSKU: ${product.sku || '—'} | Stock hit 0${dealId ? ` after Deal #${dealId}` : ''}. Restock needed!`;
 
-  const productName = product.name;
-  const subject = `🚨 Out of Stock: ${productName}`;
-
-  const html = `
-    <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
-      <h2 style="color:#dc2626">🚨 Out of Stock</h2>
-      <p><strong>${productName}</strong> has reached 0 units after a deal was closed.</p>
-      <table style="border-collapse:collapse;width:100%">
-        <tr><td style="padding:6px 12px;background:#fafafa;border:1px solid #e5e7eb">SKU</td><td style="padding:6px 12px;border:1px solid #e5e7eb">${product.sku || '—'}</td></tr>
-        <tr><td style="padding:6px 12px;background:#fafafa;border:1px solid #e5e7eb"><strong>Stock Remaining</strong></td><td style="padding:6px 12px;border:1px solid #e5e7eb;color:#dc2626"><strong>0</strong></td></tr>
-        ${dealId ? `<tr><td style="padding:6px 12px;background:#fafafa;border:1px solid #e5e7eb">Deal</td><td style="padding:6px 12px;border:1px solid #e5e7eb">${dealId}</td></tr>` : ''}
-      </table>
-      <p>Please restock this product as soon as possible.</p>
-      <p style="color:#6b7280;font-size:12px;margin-top:24px">Sent by StockIQ · Portal ${portalId}</p>
-    </div>
-  `;
-
-  const slackText = `🚨 *Out of Stock* — *${productName}*\nSKU: ${product.sku || '—'} | Stock hit 0${dealId ? ` after Deal #${dealId}` : ''}. Restock needed!`;
-
-  if (resend_api_key && alert_email) {
+  if (config.alert_email_enabled && config.alert_email) {
     try {
-      await sendEmail(resend_api_key, alert_from_email, alert_email, subject, html);
-      console.log(`[alerts] Out of stock email sent for ${productName}`);
+      await sendEmail(config.alert_email, subject, buildOutOfStockHtml(product, dealId, portalId));
+      console.log(`[alerts] Out of stock email sent for ${name}`);
     } catch (err) {
-      console.error(`[alerts] Email failed for ${productName}:`, err.response?.data || err.message);
+      console.error(`[alerts] Email failed:`, err.response?.data || err.message);
     }
   }
 
-  if (slack_webhook_url) {
+  if (config.slack_enabled && config.slack_webhook_url) {
     try {
-      await sendSlack(slack_webhook_url, slackText);
-      console.log(`[alerts] Slack OOS alert sent for ${productName}`);
+      await sendSlack(config.slack_webhook_url, slackText);
+      console.log(`[alerts] Slack out of stock alert sent for ${name}`);
     } catch (err) {
-      console.error(`[alerts] Slack failed for ${productName}:`, err.message);
+      console.error(`[alerts] Slack failed:`, err.message);
     }
   }
 }
 
-/**
- * Send a test notification to verify config.
- */
 async function sendTestAlert(portalId) {
   const config = await getAlertConfig(portalId);
   if (!config) throw new Error('No settings found for this portal');
 
-  const { resend_api_key, alert_email, alert_from_email, slack_webhook_url } = config;
   const results = { email: null, slack: null };
 
-  if (resend_api_key && alert_email) {
+  if (config.alert_email_enabled && config.alert_email) {
     try {
       await sendEmail(
-        resend_api_key,
-        alert_from_email,
-        alert_email,
+        config.alert_email,
         '✅ StockIQ Alerts Connected',
-        `<div style="font-family:sans-serif"><h2>✅ StockIQ Alerts are working!</h2><p>You will now receive low stock and out-of-stock alerts at this address.</p><p style="color:#6b7280;font-size:12px">Sent by StockIQ · Portal ${portalId}</p></div>`
+        `<div style="font-family:sans-serif"><h2 style="color:#16a34a">✅ StockIQ Alerts are working!</h2><p>You will now receive low stock and out-of-stock alerts at this address.</p><p style="color:#6b7280;font-size:12px">Sent by StockIQ · Portal ${portalId}</p></div>`
       );
       results.email = 'sent';
     } catch (err) {
@@ -168,9 +135,9 @@ async function sendTestAlert(portalId) {
     results.email = 'not configured';
   }
 
-  if (slack_webhook_url) {
+  if (config.slack_enabled && config.slack_webhook_url) {
     try {
-      await sendSlack(slack_webhook_url, '✅ *StockIQ Alerts Connected* — You will now receive low stock and out-of-stock notifications in this channel.');
+      await sendSlack(config.slack_webhook_url, '✅ *StockIQ Alerts Connected!* You will now receive low stock and out-of-stock notifications in this channel.');
       results.slack = 'sent';
     } catch (err) {
       results.slack = err.message;
