@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { db } = require('../db');
-const { getLineItemsForDeal, getDealProperties } = require('../services/hubspot');
+const { getLineItemsForDeal, getStageProbability } = require('../services/hubspot');
 const { decrementStock } = require('../services/stock');
 const {
   reserveForDeal,
@@ -120,16 +120,15 @@ async function processEvent(event) {
     return;
   }
 
-  // Fetch deal probability and properties from HubSpot
-  let dealProps;
+  // Look up probability directly from the stage config — avoids race condition
+  // where HubSpot hasn't updated the deal's hs_deal_stage_probability yet
+  let stageProbability = null;
   try {
-    dealProps = await getDealProperties(portalIdStr, dealId);
+    stageProbability = await getStageProbability(portalIdStr, stageValue);
   } catch (err) {
-    console.error(`[webhook] Failed to fetch deal properties for deal ${dealId}:`, err.message);
-    return;
+    console.error(`[webhook] Failed to fetch stage probability for stage ${stageValue}:`, err.message);
   }
 
-  const { probability, dealstage } = dealProps;
   const triggerStages = await getTriggerStages(portalIdStr);
 
   // Determine if this is a "won" stage (triggers decrement + convert)
@@ -143,7 +142,7 @@ async function processEvent(event) {
   // Determine if this is a "lost" stage (releases reservations)
   const isLostStage = isFallbackClosedLost(stageValue);
 
-  console.log(`[webhook] Deal ${dealId} stage="${stageValue}" probability=${probability}% won=${isWonStage} lost=${isLostStage}`);
+  console.log(`[webhook] Deal ${dealId} stage="${stageValue}" probability=${stageProbability}% won=${isWonStage} lost=${isLostStage}`);
 
   // --- DEAL WON: convert reservations + decrement stock ---
   if (isWonStage) {
@@ -180,7 +179,7 @@ async function processEvent(event) {
 
   // --- RESERVATION LOGIC: based on probability threshold ---
   const threshold = await getReservationThreshold(portalIdStr);
-  const dealProbability = probability !== null ? probability : 0;
+  const dealProbability = stageProbability !== null ? stageProbability : 0;
 
   if (dealProbability >= threshold) {
     // Probability meets threshold — reserve line items

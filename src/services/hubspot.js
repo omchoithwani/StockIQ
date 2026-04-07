@@ -128,11 +128,24 @@ async function getDealPipelinesAndStages(portalId) {
         pipelineLabel: pipeline.label,
         stageId: stage.id,
         stageLabel: stage.label,
+        probability: stage.metadata?.probability != null
+          ? parseFloat(stage.metadata.probability) * 100
+          : null,
       });
     }
   }
 
   return stages;
+}
+
+/**
+ * Returns the win probability (0-100) for a specific stage ID.
+ * Uses the pipeline stages config — no race condition with deal property updates.
+ */
+async function getStageProbability(portalId, stageId) {
+  const stages = await getDealPipelinesAndStages(portalId);
+  const stage = stages.find((s) => s.stageId === stageId);
+  return stage?.probability ?? null;
 }
 
 /**
@@ -152,4 +165,4 @@ async function getDealProperties(portalId, dealId) {
   };
 }
 
-module.exports = { getValidToken, getProductsFromHubSpot, getLineItemsForDeal, getDealPipelinesAndStages, getDealProperties };
+module.exports = { getValidToken, getProductsFromHubSpot, getLineItemsForDeal, getDealPipelinesAndStages, getStageProbability, getDealProperties };
