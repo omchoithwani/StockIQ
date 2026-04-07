@@ -73,6 +73,17 @@ async function initSchema() {
       FOREIGN KEY (portal_id) REFERENCES portals(portal_id)
     )
   `);
+  // Migration: add reservation_probability column if it doesn't exist yet
+  try {
+    await client.execute(`ALTER TABLE portal_settings ADD COLUMN reservation_probability INTEGER DEFAULT 80`);
+    console.log('[db] Migrated: added reservation_probability column');
+  } catch (err) {
+    // Column already exists — safe to ignore
+    if (!err.message.includes('duplicate column')) {
+      console.log('[db] reservation_probability column already present');
+    }
+  }
+
   await client.execute(`
     CREATE TABLE IF NOT EXISTS reservations (
       id              TEXT PRIMARY KEY,
