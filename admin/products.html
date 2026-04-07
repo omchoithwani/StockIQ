@@ -64,7 +64,9 @@
           <tr>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Product Name</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">SKU</th>
-            <th class="text-right px-4 py-3 font-medium text-gray-600">Stock</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">On Hand</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">Reserved</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">Available</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Last Updated</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Action</th>
@@ -72,7 +74,7 @@
         </thead>
         <tbody id="productTable">
           <tr>
-            <td colspan="6" class="text-center py-12 text-gray-400">Loading products…</td>
+            <td colspan="8" class="text-center py-12 text-gray-400">Loading products…</td>
           </tr>
         </tbody>
       </table>
@@ -97,7 +99,8 @@
     function statusBadge(product) {
       if (!product.is_active) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Inactive</span>';
       if (product.quantity === 0) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Out of Stock</span>';
-      if (product.quantity < product.low_stock_threshold) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Low Stock</span>';
+      if (product.available === 0 && product.reserved > 0) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Fully Reserved</span>';
+      if (product.available < product.low_stock_threshold) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Low Stock</span>';
       return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">In Stock</span>';
     }
 
@@ -107,22 +110,25 @@
     }
 
     function renderStats(products) {
-      const inStock = products.filter(p => p.is_active && p.quantity >= p.low_stock_threshold).length;
-      const low = products.filter(p => p.is_active && p.quantity > 0 && p.quantity < p.low_stock_threshold).length;
-      const out = products.filter(p => p.is_active && p.quantity === 0).length;
-      const inactive = products.filter(p => !p.is_active).length;
+      const active = products.filter(p => p.is_active);
+      const inStock = active.filter(p => p.available >= p.low_stock_threshold).length;
+      const low = active.filter(p => p.available > 0 && p.available < p.low_stock_threshold).length;
+      const out = active.filter(p => p.quantity === 0).length;
+      const totalReserved = active.reduce((sum, p) => sum + (p.reserved || 0), 0);
+      const totalAvailable = active.reduce((sum, p) => sum + (p.available || 0), 0);
 
       const stats = [
-        { label: 'In Stock', value: inStock, color: 'text-green-600' },
-        { label: 'Low Stock', value: low, color: 'text-yellow-600' },
-        { label: 'Out of Stock', value: out, color: 'text-red-600' },
-        { label: 'Inactive', value: inactive, color: 'text-gray-500' },
+        { label: 'In Stock', value: inStock, color: 'text-green-600', sub: null },
+        { label: 'Low / Out of Stock', value: low + out, color: 'text-yellow-600', sub: null },
+        { label: 'Units Reserved', value: totalReserved, color: 'text-indigo-600', sub: 'held by open deals' },
+        { label: 'Units Available', value: totalAvailable, color: 'text-gray-900', sub: 'free to sell' },
       ];
 
       document.getElementById('statsRow').innerHTML = stats.map(s =>
         `<div class="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
           <p class="text-xs text-gray-500 mb-1">${s.label}</p>
           <p class="text-2xl font-bold ${s.color}">${s.value}</p>
+          ${s.sub ? `<p class="text-xs text-gray-400 mt-0.5">${s.sub}</p>` : ''}
         </div>`
       ).join('');
     }
@@ -135,7 +141,7 @@
 
         const tbody = document.getElementById('productTable');
         if (!products.length) {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-gray-400">No products found. Click "Sync from HubSpot" to import.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center py-12 text-gray-400">No products found. Click "Sync from HubSpot" to import.</td></tr>';
           return;
         }
 
@@ -144,6 +150,8 @@
             <td class="px-4 py-3 font-medium text-gray-900">${escHtml(p.name)}</td>
             <td class="px-4 py-3 text-gray-500 font-mono text-xs">${escHtml(p.sku || '—')}</td>
             <td class="px-4 py-3 text-right font-semibold text-gray-800">${p.quantity}</td>
+            <td class="px-4 py-3 text-right font-semibold ${p.reserved > 0 ? 'text-indigo-600' : 'text-gray-300'}">${p.reserved > 0 ? p.reserved : '—'}</td>
+            <td class="px-4 py-3 text-right font-semibold ${p.available === 0 ? 'text-red-600' : p.available < p.low_stock_threshold ? 'text-yellow-600' : 'text-green-600'}">${p.available}</td>
             <td class="px-4 py-3 text-center">${statusBadge(p)}</td>
             <td class="px-4 py-3 text-gray-400 text-xs">${fmtDate(p.updated_at)}</td>
             <td class="px-4 py-3 text-center">
@@ -154,7 +162,7 @@
         `).join('');
       } catch (err) {
         document.getElementById('productTable').innerHTML =
-          `<tr><td colspan="6" class="text-center py-12 text-red-500">Error loading products: ${err.message}</td></tr>`;
+          `<tr><td colspan="8" class="text-center py-12 text-red-500">Error loading products: ${err.message}</td></tr>`;
       }
     }
 

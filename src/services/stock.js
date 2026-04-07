@@ -3,12 +3,23 @@ const { db } = require('../db');
 const { getProductsFromHubSpot } = require('./hubspot');
 
 /**
- * Return all products for a portal.
+ * Return all products for a portal, with reserved and available quantities joined in.
  */
 async function getAllProducts(portalId) {
   const result = await db.execute({
-    sql: 'SELECT * FROM products WHERE portal_id = ? ORDER BY name ASC',
-    args: [portalId],
+    sql: `SELECT p.*,
+            COALESCE(r.reserved, 0) as reserved,
+            MAX(0, p.quantity - COALESCE(r.reserved, 0)) as available
+          FROM products p
+          LEFT JOIN (
+            SELECT hs_product_id, SUM(quantity) as reserved
+            FROM reservations
+            WHERE portal_id = ? AND status = 'active'
+            GROUP BY hs_product_id
+          ) r ON p.hs_product_id = r.hs_product_id
+          WHERE p.portal_id = ?
+          ORDER BY p.name ASC`,
+    args: [portalId, portalId],
   });
   return result.rows;
 }
