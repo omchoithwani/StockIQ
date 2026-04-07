@@ -165,4 +165,110 @@ async function getDealProperties(portalId, dealId) {
   };
 }
 
-module.exports = { getValidToken, getProductsFromHubSpot, getLineItemsForDeal, getDealPipelinesAndStages, getStageProbability, getDealProperties };
+const STOCKIQ_PROPERTIES = [
+  {
+    name: 'stockiq_on_hand',
+    label: 'StockIQ: On Hand',
+    type: 'number',
+    fieldType: 'number',
+    description: 'Total physical units in stock, managed by StockIQ.',
+  },
+  {
+    name: 'stockiq_reserved',
+    label: 'StockIQ: Reserved',
+    type: 'number',
+    fieldType: 'number',
+    description: 'Units reserved by open deals (probability threshold met), managed by StockIQ.',
+  },
+  {
+    name: 'stockiq_available',
+    label: 'StockIQ: Available',
+    type: 'number',
+    fieldType: 'number',
+    description: 'Units available to sell (On Hand minus Reserved), managed by StockIQ.',
+  },
+  {
+    name: 'stockiq_status',
+    label: 'StockIQ: Stock Status',
+    type: 'enumeration',
+    fieldType: 'select',
+    description: 'Current stock status, managed by StockIQ.',
+    options: [
+      { label: 'In Stock', value: 'In Stock', displayOrder: 0, hidden: false },
+      { label: 'Low Stock', value: 'Low Stock', displayOrder: 1, hidden: false },
+      { label: 'Out of Stock', value: 'Out of Stock', displayOrder: 2, hidden: false },
+    ],
+  },
+];
+
+/**
+ * Ensure all StockIQ custom properties exist on the HubSpot Products object.
+ * Safe to call multiple times — skips properties that already exist.
+ */
+async function ensureStockIQProperties(portalId) {
+  const token = await getValidToken(portalId);
+  const results = [];
+
+  for (const prop of STOCKIQ_PROPERTIES) {
+    try {
+      const body = {
+        name: prop.name,
+        label: prop.label,
+        type: prop.type,
+        fieldType: prop.fieldType,
+        description: prop.description,
+        groupName: 'productinformation',
+        ...(prop.options ? { options: prop.options } : {}),
+      };
+
+      await axios.post(
+        `${HUBSPOT_API}/crm/v3/properties/products`,
+        body,
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+      );
+      results.push({ name: prop.name, created: true });
+      console.log(`[hubspot] Created property ${prop.name}`);
+    } catch (err) {
+      if (err.response?.status === 409) {
+        results.push({ name: prop.name, created: false, note: 'already exists' });
+      } else {
+        console.error(`[hubspot] Failed to create property ${prop.name}:`, err.response?.data || err.message);
+        results.push({ name: prop.name, created: false, error: err.message });
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Push stock data for a single product back to HubSpot product properties.
+ * This allows HubSpot Workflows to trigger on stock level changes.
+ */
+async function pushStockToHubSpot(portalId, hsProductId, { onHand, reserved, available, threshold }) {
+  const token = await getValidToken(portalId);
+
+  let status = 'In Stock';
+  if (onHand === 0) status = 'Out of Stock';
+  else if (available <= threshold) status = 'Low Stock';
+
+  const properties = {
+    stockiq_on_hand: String(onHand),
+    stockiq_reserved: String(reserved),
+    stockiq_available: String(available),
+    stockiq_status: status,
+  };
+
+  try {
+    await axios.patch(
+      `${HUBSPOT_API}/crm/v3/objects/products/${hsProductId}`,
+      { properties },
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    );
+    console.log(`[hubspot] Pushed stock to HubSpot for product ${hsProductId}: available=${available} status=${status}`);
+  } catch (err) {
+    console.error(`[hubspot] Failed to push stock for product ${hsProductId}:`, err.response?.data || err.message);
+  }
+}
+
+module.exports = { getValidToken, getProductsFromHubSpot, getLineItemsForDeal, getDealPipelinesAndStages, getStageProbability, getDealProperties, ensureStockIQProperties, pushStockToHubSpot };
