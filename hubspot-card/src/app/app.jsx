@@ -45,12 +45,10 @@ function StockIQCard({ context, actions }) {
     setError(null);
 
     try {
-      const res = await fetch(
-        `${BACKEND_BASE_URL}/api/stock/${portalId}/deal-line-items/${dealId}`,
-        { headers: { 'Content-Type': 'application/json' } }
-      );
+      const url = `${BACKEND_BASE_URL}/api/stock/${portalId}/deal-line-items/${dealId}`;
+      const res = await hubspot.fetch(url);
 
-      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+      if (!res.ok) throw new Error(`${res.status} — portal:${portalId} deal:${dealId}`);
 
       const data = await res.json();
       setLineItems(data.lineItems || []);
