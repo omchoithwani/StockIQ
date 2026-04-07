@@ -70,7 +70,10 @@ router.post('/signup', async (req, res) => {
 
     req.session.accountId = id;
     req.session.accountName = name.trim();
-    res.json({ ok: true, redirect: portal_id ? `/admin/products?portal_id=${portal_id}` : '/account/billing' });
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ error: 'Session error' });
+      res.json({ ok: true, redirect: portal_id ? `/admin/products?portal_id=${portal_id}` : '/account/billing' });
+    });
   } catch (err) {
     console.error('[account] signup error:', err);
     res.status(500).json({ error: 'Signup failed. Please try again.' });
@@ -113,7 +116,10 @@ router.post('/login', async (req, res) => {
       ? `/admin/products?portal_id=${account.portal_id}`
       : '/account/billing';
 
-    res.json({ ok: true, redirect });
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ error: 'Session error' });
+      res.json({ ok: true, redirect });
+    });
   } catch (err) {
     console.error('[account] login error:', err);
     res.status(500).json({ error: 'Login failed. Please try again.' });

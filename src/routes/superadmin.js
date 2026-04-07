@@ -19,7 +19,10 @@ router.post('/login', (req, res) => {
   if (!adminPassword) return res.status(500).json({ error: 'SUPERADMIN_PASSWORD not set' });
   if (password !== adminPassword) return res.status(401).json({ error: 'Invalid password' });
   req.session.isSuperAdmin = true;
-  res.json({ ok: true });
+  req.session.save((err) => {
+    if (err) return res.status(500).json({ error: 'Session error' });
+    res.json({ ok: true });
+  });
 });
 
 // POST /superadmin/logout
