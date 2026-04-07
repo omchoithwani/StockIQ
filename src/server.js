@@ -16,6 +16,9 @@ const superadminRoutes = require('./routes/superadmin');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust Render's reverse proxy so req.protocol is 'https' and redirects resolve correctly
+app.set('trust proxy', 1);
+
 // CORS — required for HubSpot UI Extensions hubspot.fetch() calls
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');

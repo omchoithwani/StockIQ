@@ -31,6 +31,11 @@ router.post('/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /superadmin/ping — session check (no auth required, useful for debugging)
+router.get('/ping', (req, res) => {
+  res.json({ isSuperAdmin: !!req.session?.isSuperAdmin, sessionID: req.sessionID });
+});
+
 // GET /superadmin — dashboard page
 router.get('/', requireSuperAdmin, (req, res) => {
   res.sendFile(path.join(PAGES, 'superadmin.html'));
@@ -117,7 +122,7 @@ router.get('/api/stats', requireSuperAdmin, async (req, res) => {
   try {
     const [accounts, active, trial, paid, portals] = await Promise.all([
       db.execute('SELECT COUNT(*) as n FROM accounts'),
-      db.execute("SELECT COUNT(*) as n FROM accounts WHERE last_login_at > ?", [Date.now() - 7 * 86400000]),
+      db.execute({ sql: 'SELECT COUNT(*) as n FROM accounts WHERE last_login_at > ?', args: [Date.now() - 7 * 86400000] }),
       db.execute("SELECT COUNT(*) as n FROM accounts WHERE plan = 'trial'"),
       db.execute("SELECT COUNT(*) as n FROM accounts WHERE plan IN ('monthly','yearly','lifetime')"),
       db.execute('SELECT COUNT(*) as n FROM portals'),

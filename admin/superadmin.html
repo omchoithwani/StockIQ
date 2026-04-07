@@ -122,25 +122,41 @@
     let editingId = null;
 
     async function loadData() {
-      const [statsRes, accountsRes] = await Promise.all([
-        fetch('/superadmin/api/stats'),
-        fetch('/superadmin/api/accounts'),
-      ]);
+      const tbody = document.getElementById('accountsBody');
+      try {
+        const [statsRes, accountsRes] = await Promise.all([
+          fetch('/superadmin/api/stats'),
+          fetch('/superadmin/api/accounts'),
+        ]);
 
-      if (statsRes.status === 401 || accountsRes.status === 401) {
-        window.location.href = '/superadmin/login';
-        return;
+        if (statsRes.status === 401 || accountsRes.status === 401) {
+          window.location.href = '/superadmin/login';
+          return;
+        }
+
+        if (!statsRes.ok) {
+          const err = await statsRes.text();
+          tbody.innerHTML = `<tr><td colspan="10" class="px-4 py-8 text-center text-red-400">Stats error ${statsRes.status}: ${err}</td></tr>`;
+          return;
+        }
+        if (!accountsRes.ok) {
+          const err = await accountsRes.text();
+          tbody.innerHTML = `<tr><td colspan="10" class="px-4 py-8 text-center text-red-400">Accounts error ${accountsRes.status}: ${err}</td></tr>`;
+          return;
+        }
+
+        const stats = await statsRes.json();
+        document.getElementById('statTotal').textContent = stats.total_accounts ?? '—';
+        document.getElementById('statActive').textContent = stats.active_7d ?? '—';
+        document.getElementById('statTrial').textContent = stats.on_trial ?? '—';
+        document.getElementById('statPaid').textContent = stats.paid ?? '—';
+        document.getElementById('statPortals').textContent = stats.total_portals ?? '—';
+
+        allAccounts = await accountsRes.json();
+        renderTable(allAccounts);
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="10" class="px-4 py-8 text-center text-red-400">Load failed: ${err.message}</td></tr>`;
       }
-
-      const stats = await statsRes.json();
-      document.getElementById('statTotal').textContent = stats.total_accounts ?? '—';
-      document.getElementById('statActive').textContent = stats.active_7d ?? '—';
-      document.getElementById('statTrial').textContent = stats.on_trial ?? '—';
-      document.getElementById('statPaid').textContent = stats.paid ?? '—';
-      document.getElementById('statPortals').textContent = stats.total_portals ?? '—';
-
-      allAccounts = await accountsRes.json();
-      renderTable(allAccounts);
     }
 
     function filterTable() {
