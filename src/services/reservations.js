@@ -22,8 +22,9 @@ async function getAllReservations(portalId) {
     sql: `SELECT r.*, p.name as product_name
           FROM reservations r
           LEFT JOIN products p ON r.portal_id = p.portal_id AND r.hs_product_id = p.hs_product_id
-          WHERE r.portal_id = ? AND r.status = 'active'
-          ORDER BY r.created_at DESC`,
+          WHERE r.portal_id = ?
+          ORDER BY r.created_at DESC
+          LIMIT 200`,
     args: [portalId],
   });
   return result.rows;

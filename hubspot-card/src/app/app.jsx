@@ -8,21 +8,22 @@ import {
   Divider,
   Alert,
   LoadingSpinner,
+  Button,
   hubspot,
 } from '@hubspot/ui-extensions';
 
 const BACKEND_BASE_URL = 'https://stockiq-n93y.onrender.com';
 
-// Status badge config
-function getStatusInfo(requested, onHand, threshold) {
+function getStatusInfo(requested, available, onHand, threshold) {
   if (onHand === null) return { label: 'Unknown', variant: 'default' };
   if (onHand === 0) return { label: 'Out of Stock', variant: 'error' };
-  if (onHand < threshold || requested > onHand) return { label: 'Low Stock', variant: 'warning' };
+  if (available !== null && available < requested) return { label: 'Insufficient', variant: 'error' };
+  if (onHand < threshold) return { label: 'Low Stock', variant: 'warning' };
   return { label: 'In Stock', variant: 'success' };
 }
 
-hubspot.extend(({ context, runServerlessFunction, actions }) => (
-  <StockIQCard context={context} runServerlessFunction={runServerlessFunction} actions={actions} />
+hubspot.extend(({ context, actions }) => (
+  <StockIQCard context={context} actions={actions} />
 ));
 
 function StockIQCard({ context, actions }) {
@@ -43,25 +44,14 @@ function StockIQCard({ context, actions }) {
     setError(null);
 
     try {
-      // Fetch deal associations to get line items via GraphQL
-      const gqlResult = await actions.fetchCrmObjectProperties({
-        objectType: 'deals',
-        objectId: dealId,
-        properties: ['dealname', 'dealstage'],
-      });
-
-      // Use serverless function (via fetch) to get line item stock
-      // Since UI Extensions can call fetch to external URLs
-      const assocRes = await fetch(
+      const res = await hubspot.fetch(
         `${BACKEND_BASE_URL}/api/stock/${portalId}/deal-line-items/${dealId}`,
-        { headers: { 'Content-Type': 'application/json' } }
+        { method: 'GET', headers: { 'Content-Type': 'application/json' } }
       );
 
-      if (!assocRes.ok) {
-        throw new Error(`Backend returned ${assocRes.status}`);
-      }
+      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
 
-      const data = await assocRes.json();
+      const data = await res.json();
       setLineItems(data.lineItems || []);
       setLastSynced(new Date().toLocaleTimeString());
     } catch (err) {
@@ -87,58 +77,97 @@ function StockIQCard({ context, actions }) {
     );
   }
 
-  const hasIssues = lineItems.some(
-    (item) => item.stockOnHand === 0 || (item.stockOnHand !== null && item.requested > item.stockOnHand)
+  const hasShortfall = lineItems.some(
+    (item) => item.available !== null && item.requested > item.available
   );
+  const hasReservations = lineItems.some((item) => item.reserved > 0);
 
   return (
     <Flex direction="column" gap="md">
-      <Heading>📦 Product Availability</Heading>
+      <Flex justify="between" align="center">
+        <Heading>📦 Product Availability</Heading>
+        <Button variant="secondary" size="small" onClick={loadStockData}>
+          Refresh
+        </Button>
+      </Flex>
 
       {/* Banner */}
       {lineItems.length === 0 ? (
         <Alert title="No line items" variant="info">
           This deal has no line items with linked products.
         </Alert>
-      ) : hasIssues ? (
-        <Alert title="⚠️ One or more products may have insufficient stock" variant="warning">
-          Review the line items below before closing this deal.
+      ) : hasShortfall ? (
+        <Alert title="Insufficient available stock" variant="error">
+          One or more products don't have enough available stock for this deal.
+          Stock may be reserved by other deals.
+        </Alert>
+      ) : hasReservations ? (
+        <Alert title="Stock reserved for this deal" variant="success">
+          All line items have sufficient stock. Some stock is reserved exclusively for this deal.
         </Alert>
       ) : (
-        <Alert title="✅ All products available" variant="success">
+        <Alert title="All products available" variant="success">
           All line items have sufficient stock on hand.
         </Alert>
       )}
 
       {/* Line items */}
       {lineItems.map((item, idx) => {
-        const statusInfo = getStatusInfo(item.requested, item.stockOnHand, item.threshold ?? 10);
+        const statusInfo = getStatusInfo(item.requested, item.available, item.stockOnHand, item.threshold ?? 10);
+        const isReserved = item.reserved > 0;
         return (
           <Box key={item.hsProductId || idx}>
             {idx > 0 && <Divider />}
             <Flex direction="column" gap="xs">
+              {/* Product name + status */}
               <Flex justify="between" align="center">
                 <Text format={{ fontWeight: 'bold' }}>{item.name || 'Unknown Product'}</Text>
-                <Tag variant={statusInfo.variant}>{statusInfo.label}</Tag>
+                <Flex gap="xs">
+                  {isReserved && <Tag variant="info">Reserved</Tag>}
+                  <Tag variant={statusInfo.variant}>{statusInfo.label}</Tag>
+                </Flex>
               </Flex>
+
+              {/* SKU */}
               <Text variant="microcopy" format={{ color: 'medium' }}>
                 SKU: {item.sku || '—'}
               </Text>
-              <Flex gap="lg">
-                <Text variant="microcopy">
-                  Requested: <Text format={{ fontWeight: 'bold' }}>{item.requested ?? '—'}</Text>
-                </Text>
-                <Text variant="microcopy">
-                  On Hand:{' '}
+
+              {/* Stock numbers */}
+              <Flex gap="lg" wrap="wrap">
+                <Flex direction="column" gap="extra-small">
+                  <Text variant="microcopy" format={{ color: 'medium' }}>Requested</Text>
+                  <Text format={{ fontWeight: 'bold' }}>{item.requested ?? '—'}</Text>
+                </Flex>
+
+                <Flex direction="column" gap="extra-small">
+                  <Text variant="microcopy" format={{ color: 'medium' }}>On Hand</Text>
+                  <Text format={{ fontWeight: 'bold' }}>{item.stockOnHand ?? '—'}</Text>
+                </Flex>
+
+                {item.reserved > 0 && (
+                  <Flex direction="column" gap="extra-small">
+                    <Text variant="microcopy" format={{ color: 'medium' }}>Reserved</Text>
+                    <Text format={{ fontWeight: 'bold', color: 'medium' }}>{item.reserved}</Text>
+                  </Flex>
+                )}
+
+                <Flex direction="column" gap="extra-small">
+                  <Text variant="microcopy" format={{ color: 'medium' }}>Available</Text>
                   <Text
                     format={{
                       fontWeight: 'bold',
-                      color: item.stockOnHand === 0 ? 'error' : item.stockOnHand < item.requested ? 'warning' : 'default',
+                      color:
+                        item.available === 0
+                          ? 'error'
+                          : item.available !== null && item.available < item.requested
+                          ? 'error'
+                          : 'success',
                     }}
                   >
-                    {item.stockOnHand ?? '—'}
+                    {item.available ?? '—'}
                   </Text>
-                </Text>
+                </Flex>
               </Flex>
             </Flex>
           </Box>

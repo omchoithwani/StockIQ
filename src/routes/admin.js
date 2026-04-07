@@ -21,4 +21,8 @@ router.get('/settings', (req, res) => {
   res.sendFile(path.join(ADMIN_DIR, 'settings.html'));
 });
 
+router.get('/reservations', (req, res) => {
+  res.sendFile(path.join(ADMIN_DIR, 'reservations.html'));
+});
+
 module.exports = router;

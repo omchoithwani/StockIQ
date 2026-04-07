@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockIQ — Reservations</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-gray-900">📦 StockIQ — Reservations</h1>
+      <p id="portalBadge" class="text-sm text-gray-500 mt-1"></p>
+    </div>
+
+    <!-- Nav -->
+    <div class="flex gap-4 mb-6 text-sm">
+      <a id="navProducts" href="#" class="text-gray-500 hover:text-gray-700">Products</a>
+      <a id="navRestock" href="#" class="text-gray-500 hover:text-gray-700">Restock</a>
+      <a id="navMovements" href="#" class="text-gray-500 hover:text-gray-700">Movements</a>
+      <span class="font-medium text-indigo-600 border-b-2 border-indigo-600 pb-1">Reservations</span>
+      <a id="navSettings" href="#" class="text-gray-500 hover:text-gray-700">Settings</a>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Active Reservations</p>
+        <p id="countActive" class="text-2xl font-bold text-indigo-600">—</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Units Reserved</p>
+        <p id="countUnits" class="text-2xl font-bold text-gray-900">—</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Deals with Reservations</p>
+        <p id="countDeals" class="text-2xl font-bold text-gray-900">—</p>
+      </div>
+    </div>
+
+    <!-- Table card -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-gray-900">Active Stock Reservations</h2>
+        <button onclick="loadReservations()"
+          class="text-sm px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+          Refresh
+        </button>
+      </div>
+
+      <div id="loadingState" class="text-sm text-gray-400 px-6 py-8 text-center">Loading reservations…</div>
+      <div id="emptyState" class="hidden text-sm text-gray-400 px-6 py-8 text-center">
+        No active reservations. Reservations are created automatically when a deal's probability reaches your configured threshold.
+      </div>
+      <div id="errorState" class="hidden text-sm text-red-500 px-6 py-8 text-center"></div>
+
+      <div id="tableContainer" class="hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-100">
+              <th class="text-left text-xs font-medium text-gray-400 uppercase tracking-wide px-6 py-3">Product</th>
+              <th class="text-left text-xs font-medium text-gray-400 uppercase tracking-wide px-6 py-3">SKU</th>
+              <th class="text-left text-xs font-medium text-gray-400 uppercase tracking-wide px-6 py-3">Deal</th>
+              <th class="text-right text-xs font-medium text-gray-400 uppercase tracking-wide px-6 py-3">Qty Reserved</th>
+              <th class="text-left text-xs font-medium text-gray-400 uppercase tracking-wide px-6 py-3">Status</th>
+              <th class="text-left text-xs font-medium text-gray-400 uppercase tracking-wide px-6 py-3">Reserved At</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-gray-50"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="mt-4 text-xs text-gray-400 space-y-1">
+      <p><span class="font-medium text-gray-600">active</span> — Stock is currently held for this deal.</p>
+      <p><span class="font-medium text-gray-600">released</span> — Reservation was cancelled (deal lost or probability dropped).</p>
+      <p><span class="font-medium text-gray-600">converted</span> — Deal was won; stock was decremented.</p>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const portalId = params.get('portal_id');
+
+    if (!portalId) {
+      document.body.innerHTML = '<div class="p-8 text-red-600">Missing portal_id parameter.</div>';
+    }
+
+    document.getElementById('portalBadge').textContent = `Portal ID: ${portalId}`;
+    document.getElementById('navProducts').href = `/admin/products?portal_id=${portalId}`;
+    document.getElementById('navRestock').href = `/admin/restock?portal_id=${portalId}`;
+    document.getElementById('navMovements').href = `/admin/movements?portal_id=${portalId}`;
+    document.getElementById('navSettings').href = `/admin/settings?portal_id=${portalId}`;
+
+    async function loadReservations() {
+      document.getElementById('loadingState').classList.remove('hidden');
+      document.getElementById('emptyState').classList.add('hidden');
+      document.getElementById('errorState').classList.add('hidden');
+      document.getElementById('tableContainer').classList.add('hidden');
+
+      try {
+        const res = await fetch(`/api/reservations/${portalId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load');
+
+        document.getElementById('loadingState').classList.add('hidden');
+
+        const active = data.filter(r => r.status === 'active');
+        const totalUnits = active.reduce((sum, r) => sum + r.quantity, 0);
+        const uniqueDeals = new Set(active.map(r => r.deal_id)).size;
+
+        document.getElementById('countActive').textContent = active.length;
+        document.getElementById('countUnits').textContent = totalUnits;
+        document.getElementById('countDeals').textContent = uniqueDeals;
+
+        if (data.length === 0) {
+          document.getElementById('emptyState').classList.remove('hidden');
+          return;
+        }
+
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = data.map(r => {
+          const date = new Date(r.created_at).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+          });
+          const statusColor = {
+            active: 'bg-indigo-50 text-indigo-700',
+            released: 'bg-gray-100 text-gray-500',
+            converted: 'bg-green-50 text-green-700',
+            lost: 'bg-red-50 text-red-600',
+            below_threshold: 'bg-yellow-50 text-yellow-700',
+          }[r.status] || 'bg-gray-100 text-gray-500';
+
+          return `
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3 font-medium text-gray-800">${escHtml(r.product_name || r.hs_product_id)}</td>
+              <td class="px-6 py-3 text-gray-500 font-mono text-xs">${escHtml(r.sku || '—')}</td>
+              <td class="px-6 py-3 text-gray-600">
+                <a href="https://app.hubspot.com/contacts/${portalId}/deal/${r.deal_id}"
+                   target="_blank" rel="noopener"
+                   class="text-indigo-600 hover:underline">#${escHtml(r.deal_id)}</a>
+              </td>
+              <td class="px-6 py-3 text-right font-semibold text-gray-900">${r.quantity}</td>
+              <td class="px-6 py-3">
+                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColor}">${escHtml(r.status)}</span>
+              </td>
+              <td class="px-6 py-3 text-gray-400 text-xs">${date}</td>
+            </tr>
+          `;
+        }).join('');
+
+        document.getElementById('tableContainer').classList.remove('hidden');
+      } catch (err) {
+        document.getElementById('loadingState').classList.add('hidden');
+        const errEl = document.getElementById('errorState');
+        errEl.textContent = `Error: ${err.message}`;
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    loadReservations();
+  </script>
+</body>
+</html>
