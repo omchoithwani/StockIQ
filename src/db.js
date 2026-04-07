@@ -107,6 +107,25 @@ async function initSchema() {
       FOREIGN KEY (portal_id) REFERENCES portals(portal_id)
     )
   `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id                    TEXT PRIMARY KEY,
+      email                 TEXT NOT NULL UNIQUE,
+      password_hash         TEXT NOT NULL,
+      name                  TEXT NOT NULL,
+      portal_id             TEXT,
+      plan                  TEXT NOT NULL DEFAULT 'trial',
+      trial_ends_at         INTEGER,
+      paypal_subscription_id TEXT,
+      paypal_order_id       TEXT,
+      last_login_at         INTEGER,
+      created_at            INTEGER NOT NULL,
+      updated_at            INTEGER NOT NULL,
+      FOREIGN KEY (portal_id) REFERENCES portals(portal_id)
+    )
+  `);
+
   console.log('[db] Schema initialised');
 }
 

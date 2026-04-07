@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockIQ — Superadmin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 min-h-screen text-gray-100">
+
+  <!-- Top bar -->
+  <header class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-base">📦</div>
+      <span class="font-bold text-white">StockIQ</span>
+      <span class="text-gray-500 text-sm">/ Superadmin</span>
+    </div>
+    <button onclick="logout()" class="text-sm text-gray-400 hover:text-white transition-colors">Sign out</button>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8" id="statsRow">
+      <div class="bg-gray-800 rounded-2xl p-5 col-span-1">
+        <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Total Accounts</p>
+        <p class="text-3xl font-bold text-white" id="statTotal">—</p>
+      </div>
+      <div class="bg-gray-800 rounded-2xl p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Active (7d)</p>
+        <p class="text-3xl font-bold text-green-400" id="statActive">—</p>
+      </div>
+      <div class="bg-gray-800 rounded-2xl p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">On Trial</p>
+        <p class="text-3xl font-bold text-amber-400" id="statTrial">—</p>
+      </div>
+      <div class="bg-gray-800 rounded-2xl p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Paid</p>
+        <p class="text-3xl font-bold text-indigo-400" id="statPaid">—</p>
+      </div>
+      <div class="bg-gray-800 rounded-2xl p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Portals</p>
+        <p class="text-3xl font-bold text-cyan-400" id="statPortals">—</p>
+      </div>
+    </div>
+
+    <!-- Accounts table -->
+    <div class="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <h2 class="font-semibold text-white">Accounts</h2>
+        <div class="flex items-center gap-3">
+          <input id="searchInput" type="text" placeholder="Search email or portal…"
+            oninput="filterTable()"
+            class="bg-gray-800 border border-gray-700 rounded-xl px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-52" />
+          <button onclick="loadData()" class="text-sm text-indigo-400 hover:text-indigo-300">Refresh</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wide">
+              <th class="px-4 py-3 text-left">Account</th>
+              <th class="px-4 py-3 text-left">Portal ID</th>
+              <th class="px-4 py-3 text-left">Plan</th>
+              <th class="px-4 py-3 text-left">Trial Ends</th>
+              <th class="px-4 py-3 text-left">Last Login</th>
+              <th class="px-4 py-3 text-left">Usage Score</th>
+              <th class="px-4 py-3 text-left">Products</th>
+              <th class="px-4 py-3 text-left">Moves 30d</th>
+              <th class="px-4 py-3 text-left">Created</th>
+              <th class="px-4 py-3 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="accountsBody">
+            <tr>
+              <td colspan="10" class="px-4 py-8 text-center text-gray-500">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Edit modal -->
+  <div id="editModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div class="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-md p-6">
+      <h3 class="font-semibold text-white text-lg mb-5">Edit Account</h3>
+      <p id="modalEmail" class="text-sm text-gray-400 mb-5"></p>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">Plan</label>
+          <select id="modalPlan"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="trial">Trial</option>
+            <option value="monthly">Monthly ($25/mo)</option>
+            <option value="yearly">Yearly ($250/yr)</option>
+            <option value="lifetime">Lifetime ($499)</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">Trial Ends At</label>
+          <input id="modalTrialDate" type="date"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <p class="text-xs text-gray-500 mt-1">Leave blank to remove trial end date</p>
+        </div>
+      </div>
+
+      <div id="modalError" class="hidden mt-4 bg-red-900/40 border border-red-700 text-red-300 rounded-xl px-4 py-3 text-sm"></div>
+
+      <div class="flex gap-3 mt-6">
+        <button onclick="closeModal()" class="flex-1 py-2.5 bg-gray-800 text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-700 transition-colors">Cancel</button>
+        <button onclick="saveModal()" id="modalSaveBtn" class="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allAccounts = [];
+    let editingId = null;
+
+    async function loadData() {
+      const [statsRes, accountsRes] = await Promise.all([
+        fetch('/superadmin/api/stats'),
+        fetch('/superadmin/api/accounts'),
+      ]);
+
+      if (statsRes.status === 401 || accountsRes.status === 401) {
+        window.location.href = '/superadmin/login';
+        return;
+      }
+
+      const stats = await statsRes.json();
+      document.getElementById('statTotal').textContent = stats.total_accounts ?? '—';
+      document.getElementById('statActive').textContent = stats.active_7d ?? '—';
+      document.getElementById('statTrial').textContent = stats.on_trial ?? '—';
+      document.getElementById('statPaid').textContent = stats.paid ?? '—';
+      document.getElementById('statPortals').textContent = stats.total_portals ?? '—';
+
+      allAccounts = await accountsRes.json();
+      renderTable(allAccounts);
+    }
+
+    function filterTable() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = q
+        ? allAccounts.filter(a =>
+            (a.email || '').toLowerCase().includes(q) ||
+            (a.portal_id || '').includes(q) ||
+            (a.name || '').toLowerCase().includes(q)
+          )
+        : allAccounts;
+      renderTable(filtered);
+    }
+
+    function renderTable(accounts) {
+      const tbody = document.getElementById('accountsBody');
+      if (!accounts.length) {
+        tbody.innerHTML = '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-500">No accounts found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = accounts.map(a => {
+        const planBadge = planBadgeHtml(a.plan);
+        const trialDate = a.trial_ends_at
+          ? new Date(a.trial_ends_at).toLocaleDateString()
+          : '—';
+        const lastLogin = a.last_login_at
+          ? timeAgo(a.last_login_at)
+          : 'Never';
+        const created = a.created_at
+          ? new Date(a.created_at).toLocaleDateString()
+          : '—';
+        const score = a.usage_score ?? 0;
+        const scoreColor = score > 50 ? 'text-green-400' : score > 10 ? 'text-amber-400' : 'text-gray-400';
+
+        return `
+          <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+            <td class="px-4 py-3">
+              <p class="font-medium text-white">${escHtml(a.name || '—')}</p>
+              <p class="text-xs text-gray-400">${escHtml(a.email)}</p>
+            </td>
+            <td class="px-4 py-3">
+              ${a.portal_id
+                ? `<a href="/admin/products?portal_id=${escHtml(a.portal_id)}" target="_blank" class="text-indigo-400 hover:underline font-mono text-xs">${escHtml(a.portal_id)}</a>`
+                : '<span class="text-gray-500 text-xs">—</span>'}
+            </td>
+            <td class="px-4 py-3">${planBadge}</td>
+            <td class="px-4 py-3 text-xs text-gray-300">${trialDate}</td>
+            <td class="px-4 py-3 text-xs text-gray-300">${lastLogin}</td>
+            <td class="px-4 py-3 font-bold ${scoreColor}">${score}</td>
+            <td class="px-4 py-3 text-xs text-gray-300">${a.product_count ?? 0}</td>
+            <td class="px-4 py-3 text-xs text-gray-300">${a.movements_30d ?? 0}</td>
+            <td class="px-4 py-3 text-xs text-gray-400">${created}</td>
+            <td class="px-4 py-3">
+              <button onclick="openModal(${JSON.stringify(a).replace(/"/g, '&quot;')})"
+                class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+                Edit
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function planBadgeHtml(plan) {
+      const map = {
+        trial: 'bg-amber-900/50 text-amber-300 border-amber-700',
+        monthly: 'bg-indigo-900/50 text-indigo-300 border-indigo-700',
+        yearly: 'bg-indigo-900/50 text-indigo-300 border-indigo-700',
+        lifetime: 'bg-purple-900/50 text-purple-300 border-purple-700',
+        cancelled: 'bg-gray-800 text-gray-400 border-gray-700',
+      };
+      const cls = map[plan] || 'bg-gray-800 text-gray-400 border-gray-700';
+      return `<span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${cls}">${plan}</span>`;
+    }
+
+    function timeAgo(ts) {
+      const diff = Date.now() - ts;
+      const mins = Math.floor(diff / 60000);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(diff / 3600000);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(diff / 86400000);
+      return `${days}d ago`;
+    }
+
+    function escHtml(str) {
+      return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function openModal(account) {
+      editingId = account.id;
+      document.getElementById('modalEmail').textContent = `${account.name} — ${account.email}`;
+      document.getElementById('modalPlan').value = account.plan || 'trial';
+      document.getElementById('modalTrialDate').value = account.trial_ends_at
+        ? new Date(account.trial_ends_at).toISOString().split('T')[0]
+        : '';
+      document.getElementById('modalError').classList.add('hidden');
+      document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      editingId = null;
+      document.getElementById('editModal').classList.add('hidden');
+    }
+
+    async function saveModal() {
+      const btn = document.getElementById('modalSaveBtn');
+      const errEl = document.getElementById('modalError');
+      errEl.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const plan = document.getElementById('modalPlan').value;
+      const dateStr = document.getElementById('modalTrialDate').value;
+      const trial_ends_at = dateStr ? new Date(dateStr).getTime() : null;
+
+      try {
+        const res = await fetch(`/superadmin/api/accounts/${editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan, trial_ends_at }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Update failed');
+        closeModal();
+        loadData();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+      }
+    }
+
+    async function logout() {
+      await fetch('/superadmin/logout', { method: 'POST' });
+      window.location.href = '/superadmin/login';
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('editModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    loadData();
+  </script>
+</body>
+</html>

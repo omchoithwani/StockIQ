@@ -61,8 +61,21 @@ router.get('/callback', async (req, res) => {
       args: [portalId, access_token, refresh_token, token_expires, now],
     });
 
-    console.log(`[oauth] Portal ${portalId} installed/updated`);
-    res.redirect(`/admin/products?portal_id=${portalId}`);
+    // Check if this portal already has an account
+    const existingAccount = await db.execute({
+      sql: 'SELECT id FROM accounts WHERE portal_id = ?',
+      args: [portalId],
+    });
+
+    if (existingAccount.rows.length > 0) {
+      // Returning install — go straight to dashboard
+      console.log(`[oauth] Portal ${portalId} reinstalled — existing account found`);
+      res.redirect(`/admin/products?portal_id=${portalId}`);
+    } else {
+      // New install — send to signup to create account
+      console.log(`[oauth] Portal ${portalId} new install — redirecting to signup`);
+      res.redirect(`/account/signup?portal_id=${portalId}`);
+    }
   } catch (err) {
     console.error('[oauth] callback error:', err.response?.data || err.message);
     res.status(500).send('OAuth error — check server logs');

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockIQ — Billing</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+
+    <!-- Header -->
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl mb-4">
+        <span class="text-2xl">📦</span>
+      </div>
+      <h1 class="text-3xl font-bold text-gray-900">Choose your plan</h1>
+      <p id="trialBanner" class="hidden mt-2 text-sm font-medium text-indigo-600"></p>
+      <p id="currentPlanBanner" class="hidden mt-2 text-sm text-green-600 font-medium"></p>
+    </div>
+
+    <!-- Plan toggle -->
+    <div class="flex justify-center mb-8">
+      <div class="inline-flex bg-gray-100 rounded-xl p-1 text-sm">
+        <button onclick="setBilling('monthly')" id="btnMonthly"
+          class="px-5 py-2 rounded-lg font-medium bg-white shadow-sm text-gray-900 transition-all">Monthly</button>
+        <button onclick="setBilling('yearly')" id="btnYearly"
+          class="px-5 py-2 rounded-lg font-medium text-gray-500 transition-all">
+          Yearly <span class="ml-1 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">Save 17%</span>
+        </button>
+        <button onclick="setBilling('lifetime')" id="btnLifetime"
+          class="px-5 py-2 rounded-lg font-medium text-gray-500 transition-all">Lifetime</button>
+      </div>
+    </div>
+
+    <!-- Plans -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+
+      <!-- Free / Trial -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Free Trial</p>
+        <p class="text-3xl font-bold text-gray-900 mb-1">$0</p>
+        <p class="text-sm text-gray-500 mb-6">14 days, no card required</p>
+        <ul class="space-y-2 text-sm text-gray-600 mb-8 flex-1">
+          <li class="flex gap-2"><span class="text-green-500">✓</span> Up to 25 products</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> Stock reservations</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> CRM card on deals</li>
+          <li class="flex gap-2"><span class="text-gray-300">✗</span> Email/Slack alerts</li>
+          <li class="flex gap-2"><span class="text-gray-300">✗</span> Bulk import/export</li>
+        </ul>
+        <div id="trialStatus" class="text-center text-sm text-gray-400 font-medium py-2 border border-dashed border-gray-200 rounded-xl">
+          Current plan
+        </div>
+      </div>
+
+      <!-- Paid plan -->
+      <div class="bg-indigo-600 rounded-2xl p-6 flex flex-col relative overflow-hidden shadow-lg shadow-indigo-200">
+        <div class="absolute top-4 right-4 bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+          POPULAR
+        </div>
+        <p class="text-xs font-semibold text-indigo-200 uppercase tracking-wide mb-2">StockIQ Pro</p>
+        <div id="priceDisplay">
+          <p class="text-3xl font-bold text-white mb-1">$25<span class="text-lg font-normal text-indigo-200">/mo</span></p>
+          <p class="text-sm text-indigo-200 mb-6">Billed monthly</p>
+        </div>
+        <ul class="space-y-2 text-sm text-indigo-100 mb-8 flex-1">
+          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Unlimited products</li>
+          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Stock reservations</li>
+          <li class="flex gap-2"><span class="text-white font-bold">✓</span> CRM card on deals</li>
+          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Email + Slack alerts</li>
+          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Bulk import/export</li>
+          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Priority support</li>
+        </ul>
+        <!-- PayPal button renders here -->
+        <div id="paypalButtonContainer" class="min-h-[48px]"></div>
+        <div id="paypalLoading" class="text-center text-indigo-200 text-sm py-3">Loading payment…</div>
+      </div>
+
+      <!-- Already on paid plan card -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">What's included</p>
+        <p class="text-3xl font-bold text-gray-900 mb-6">Everything</p>
+        <ul class="space-y-3 text-sm text-gray-600 flex-1">
+          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">📦</span> Real-time stock tracking synced from HubSpot</li>
+          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">🔒</span> Auto-reserve stock when deals reach your threshold</li>
+          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">🔔</span> Alerts via Email and Slack when stock runs low</li>
+          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">📊</span> CRM card showing live stock on every deal</li>
+          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">📥</span> Bulk import/export via CSV</li>
+        </ul>
+        <div class="mt-8 text-xs text-gray-400 text-center">
+          Questions? <a href="mailto:support@stockiq.app" class="text-indigo-500 hover:underline">Contact support</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active plan actions -->
+    <div id="activePlanActions" class="hidden text-center">
+      <a href="/account/dashboard" class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700">
+        Go to Dashboard →
+      </a>
+      <p class="text-xs text-gray-400 mt-3">
+        To cancel or change your subscription, manage it directly in your PayPal account.
+      </p>
+    </div>
+
+    <!-- Success message -->
+    <div id="successBanner" class="hidden mt-6 bg-green-50 border border-green-200 text-green-800 rounded-2xl px-6 py-4 text-center">
+      <p class="font-semibold text-lg">🎉 Payment successful!</p>
+      <p class="text-sm mt-1">Your plan is now active. <a href="/account/dashboard" class="underline font-medium">Go to dashboard →</a></p>
+    </div>
+  </div>
+
+  <script>
+    const PLANS = {
+      monthly:  { price: '$25/mo',  sub: 'Billed monthly',     amount: 25  },
+      yearly:   { price: '$250/yr', sub: 'Save $50 vs monthly', amount: 250 },
+      lifetime: { price: '$499',    sub: 'One-time payment',    amount: 499 },
+    };
+
+    let billingCycle = 'monthly';
+    let account = null;
+
+    async function init() {
+      // Load account info
+      const res = await fetch('/account/me');
+      if (!res.ok) { window.location.href = '/account/login'; return; }
+      account = await res.json();
+
+      // Show trial status
+      if (account.plan === 'trial' && account.trial_ends_at) {
+        const daysLeft = Math.max(0, Math.ceil((account.trial_ends_at - Date.now()) / 86400000));
+        const el = document.getElementById('trialBanner');
+        el.textContent = daysLeft > 0
+          ? `✨ Your free trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`
+          : '⏰ Your free trial has expired';
+        el.classList.remove('hidden');
+
+        document.getElementById('trialStatus').textContent =
+          daysLeft > 0 ? `${daysLeft} days remaining` : 'Expired';
+      }
+
+      if (['monthly', 'yearly', 'lifetime'].includes(account.plan)) {
+        const el = document.getElementById('currentPlanBanner');
+        el.textContent = `✅ You're on the ${account.plan} plan`;
+        el.classList.remove('hidden');
+        document.getElementById('activePlanActions').classList.remove('hidden');
+        document.getElementById('paypalLoading').textContent = 'Plan active';
+        return;
+      }
+
+      // Load PayPal
+      const configRes = await fetch('/account/config');
+      const config = configRes.ok ? await configRes.json() : {};
+      const clientId = config.paypalClientId || '';
+      if (!clientId) {
+        document.getElementById('paypalLoading').textContent = 'Payment not configured yet';
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD&intent=capture`;
+      script.onload = () => renderPayPalButton();
+      document.head.appendChild(script);
+    }
+
+    function setBilling(cycle) {
+      billingCycle = cycle;
+      ['monthly', 'yearly', 'lifetime'].forEach(c => {
+        const btn = document.getElementById(`btn${c.charAt(0).toUpperCase() + c.slice(1)}`);
+        if (c === cycle) {
+          btn.className = 'px-5 py-2 rounded-lg font-medium bg-white shadow-sm text-gray-900 transition-all';
+        } else {
+          btn.className = 'px-5 py-2 rounded-lg font-medium text-gray-500 transition-all';
+        }
+      });
+
+      const p = PLANS[cycle];
+      const isLifetime = cycle === 'lifetime';
+      document.getElementById('priceDisplay').innerHTML = isLifetime
+        ? `<p class="text-3xl font-bold text-white mb-1">${p.price}</p><p class="text-sm text-indigo-200 mb-6">${p.sub}</p>`
+        : `<p class="text-3xl font-bold text-white mb-1">${p.price.split('/')[0]}<span class="text-lg font-normal text-indigo-200">/${p.price.split('/')[1]}</span></p><p class="text-sm text-indigo-200 mb-6">${p.sub}</p>`;
+
+      renderPayPalButton();
+    }
+
+    function renderPayPalButton() {
+      const container = document.getElementById('paypalButtonContainer');
+      const loading = document.getElementById('paypalLoading');
+      if (!window.paypal) return;
+
+      container.innerHTML = '';
+      loading.classList.add('hidden');
+
+      const plan = billingCycle;
+      const amount = String(PLANS[plan].amount);
+
+      window.paypal.Buttons({
+        style: { layout: 'vertical', color: 'gold', shape: 'pill', label: 'pay', height: 48 },
+        createOrder: (data, actions) => actions.order.create({
+          purchase_units: [{
+            description: `StockIQ Pro — ${plan}`,
+            amount: { value: amount, currency_code: 'USD' },
+          }],
+        }),
+        onApprove: async (data, actions) => {
+          const order = await actions.order.capture();
+          await activatePlan(plan, order.id, null);
+        },
+        onError: (err) => {
+          console.error('PayPal error:', err);
+          alert('Payment failed. Please try again.');
+        },
+      }).render('#paypalButtonContainer');
+    }
+
+    async function activatePlan(plan, orderId, subscriptionId) {
+      const res = await fetch('/account/billing/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, paypal_order_id: orderId, paypal_subscription_id: subscriptionId }),
+      });
+      if (res.ok) {
+        document.getElementById('successBanner').classList.remove('hidden');
+        document.getElementById('paypalButtonContainer').innerHTML = '';
+        document.getElementById('activePlanActions').classList.remove('hidden');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
