@@ -158,7 +158,7 @@
               <span
                 class="inline-block px-2 py-0.5 rounded cursor-pointer text-gray-600 font-mono text-xs border border-transparent hover:border-gray-300 hover:bg-gray-50"
                 title="Click to edit threshold"
-                onclick='editThreshold("${escAttr(p.hs_product_id)}", ${p.low_stock_threshold ?? 10})'>
+                onclick='editThreshold("${escHtml(p.hs_product_id)}", ${p.low_stock_threshold ?? 10})'>
                 ${p.low_stock_threshold ?? 10}
               </span>
             </td>
