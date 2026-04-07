@@ -11,6 +11,7 @@ const {
 } = require('../services/stock');
 const { getLineItemsForDeal } = require('../services/hubspot');
 const { getReservedQty } = require('../services/reservations');
+const { db } = require('../db');
 
 const router = express.Router();
 
@@ -109,7 +110,29 @@ router.post('/:portalId/sync', requirePortal, async (req, res) => {
   }
 });
 
-// GET /api/stock/:portalId/deal-line-items/:dealId
+// POST /api/stock/:portalId/threshold
+router.post('/:portalId/threshold', requirePortal, async (req, res) => {
+  const { hs_product_id, threshold } = req.body;
+  if (!hs_product_id || threshold === undefined) {
+    return res.status(400).json({ error: 'hs_product_id and threshold are required' });
+  }
+  const t = parseInt(threshold, 10);
+  if (isNaN(t) || t < 0) {
+    return res.status(400).json({ error: 'threshold must be a non-negative integer' });
+  }
+  try {
+    await db.execute({
+      sql: 'UPDATE products SET low_stock_threshold = ?, updated_at = ? WHERE portal_id = ? AND hs_product_id = ?',
+      args: [t, Date.now(), req.portalId, hs_product_id],
+    });
+    res.json({ ok: true, threshold: t });
+  } catch (err) {
+    console.error('[stock] threshold update:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Used by the HubSpot CRM card to get stock data for all line items on a deal.
 router.get('/:portalId/deal-line-items/:dealId', requirePortal, async (req, res) => {
   const { dealId } = req.params;
