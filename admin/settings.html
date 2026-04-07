@@ -22,12 +22,52 @@
       <span class="font-medium text-indigo-600 border-b-2 border-indigo-600 pb-1">Settings</span>
     </div>
 
-    <!-- Card -->
+    <!-- Reservation Probability Card -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      <h2 class="text-base font-semibold text-gray-900 mb-1">Stock Reservation Threshold</h2>
+      <p class="text-sm text-gray-500 mb-5">
+        When a deal's win probability reaches this percentage, StockIQ will automatically reserve the
+        stock for all line items on that deal — preventing it from being sold to other customers.
+        Reservations are released if the probability drops below this threshold or the deal is lost.
+      </p>
+
+      <div class="flex items-center gap-5">
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Reservation Probability Threshold</label>
+          <div class="flex items-center gap-3">
+            <input
+              type="range"
+              id="probSlider"
+              min="0" max="100" step="5"
+              value="80"
+              class="flex-1 h-2 accent-indigo-600"
+              oninput="document.getElementById('probInput').value = this.value"
+            />
+            <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+              <input
+                type="number"
+                id="probInput"
+                min="0" max="100"
+                value="80"
+                class="w-16 text-center text-sm font-semibold text-gray-900 py-2 px-2 border-none outline-none"
+                oninput="document.getElementById('probSlider').value = this.value"
+              />
+              <span class="pr-3 text-sm text-gray-500">%</span>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">
+            Set to 0% to reserve all deals immediately. Set to 100% to never auto-reserve.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trigger Stages Card -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h2 class="text-base font-semibold text-gray-900 mb-1">Stock Decrement Trigger Stages</h2>
       <p class="text-sm text-gray-500 mb-5">
         Select which deal stages should automatically reduce stock. When a deal moves to any checked stage,
-        StockIQ will decrement stock for all line items on that deal.
+        StockIQ will decrement stock for all line items on that deal and convert any reservations to a sale.
       </p>
 
       <div id="loadingState" class="text-sm text-gray-400 py-4">Loading pipelines from HubSpot…</div>
@@ -73,6 +113,11 @@
 
         savedTriggerStages = new Set(data.triggerStages || []);
         renderPipelines(data.stages || [], savedTriggerStages);
+
+        // Set the reservation probability
+        const prob = data.reservationProbability ?? 80;
+        document.getElementById('probSlider').value = prob;
+        document.getElementById('probInput').value = prob;
 
         document.getElementById('loadingState').classList.add('hidden');
         document.getElementById('pipelinesContainer').classList.remove('hidden');
@@ -129,6 +174,8 @@
         .filter(cb => cb.checked)
         .map(cb => cb.value);
 
+      const reservationProbability = parseInt(document.getElementById('probInput').value, 10);
+
       const successEl = document.getElementById('successMsg');
       const errorEl = document.getElementById('errorMsg');
       successEl.classList.add('hidden');
@@ -142,15 +189,16 @@
         const res = await fetch(`/api/settings/${portalId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ triggerStages }),
+          body: JSON.stringify({ triggerStages, reservationProbability }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Save failed');
 
         savedTriggerStages = new Set(triggerStages);
-        successEl.textContent = triggerStages.length === 0
-          ? 'Settings saved. No stages selected — stock will not auto-decrement.'
-          : `Settings saved. Stock will decrement when deals move to ${triggerStages.length} selected stage(s).`;
+        successEl.textContent = `Settings saved. Reservations trigger at ${reservationProbability}% probability. ` +
+          (triggerStages.length === 0
+            ? 'No stages selected for stock decrement.'
+            : `Stock decrements on ${triggerStages.length} selected stage(s).`);
         successEl.classList.remove('hidden');
       } catch (err) {
         errorEl.textContent = err.message;

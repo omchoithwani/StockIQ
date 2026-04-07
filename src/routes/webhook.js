@@ -1,8 +1,14 @@
 const express = require('express');
 const crypto = require('crypto');
 const { db } = require('../db');
-const { getLineItemsForDeal } = require('../services/hubspot');
+const { getLineItemsForDeal, getDealProperties } = require('../services/hubspot');
 const { decrementStock } = require('../services/stock');
+const {
+  reserveForDeal,
+  releaseReservations,
+  convertReservationsToSale,
+  getReservationThreshold,
+} = require('../services/reservations');
 require('dotenv').config();
 
 const router = express.Router();
@@ -67,6 +73,11 @@ function isFallbackClosedWon(stageValue) {
   return normalised === 'closedwon';
 }
 
+function isFallbackClosedLost(stageValue) {
+  const normalised = (stageValue || '').toLowerCase().replace(/[\s_-]/g, '');
+  return normalised === 'closedlost';
+}
+
 // POST /webhook/deal-won
 router.post('/deal-won', async (req, res) => {
   if (!validateHubSpotSignature(req)) {
@@ -109,45 +120,100 @@ async function processEvent(event) {
     return;
   }
 
-  // Check if this stage should trigger a decrement
+  // Fetch deal probability and properties from HubSpot
+  let dealProps;
+  try {
+    dealProps = await getDealProperties(portalIdStr, dealId);
+  } catch (err) {
+    console.error(`[webhook] Failed to fetch deal properties for deal ${dealId}:`, err.message);
+    return;
+  }
+
+  const { probability, dealstage } = dealProps;
   const triggerStages = await getTriggerStages(portalIdStr);
 
-  let shouldTrigger;
+  // Determine if this is a "won" stage (triggers decrement + convert)
+  let isWonStage;
   if (triggerStages) {
-    // User has configured specific stages — match by stage ID
-    shouldTrigger = triggerStages.has(stageValue);
+    isWonStage = triggerStages.has(stageValue);
   } else {
-    // No config yet — fall back to matching 'closedwon' by name
-    shouldTrigger = isFallbackClosedWon(stageValue);
+    isWonStage = isFallbackClosedWon(stageValue);
   }
 
-  if (!shouldTrigger) {
-    return;
-  }
+  // Determine if this is a "lost" stage (releases reservations)
+  const isLostStage = isFallbackClosedLost(stageValue);
 
-  console.log(`[webhook] Deal ${dealId} moved to trigger stage "${stageValue}" — decrementing stock for portal ${portalIdStr}`);
+  console.log(`[webhook] Deal ${dealId} stage="${stageValue}" probability=${probability}% won=${isWonStage} lost=${isLostStage}`);
 
-  let lineItems;
-  try {
-    lineItems = await getLineItemsForDeal(portalIdStr, dealId);
-  } catch (err) {
-    console.error(`[webhook] Failed to fetch line items for deal ${dealId}:`, err.message);
-    return;
-  }
+  // --- DEAL WON: convert reservations + decrement stock ---
+  if (isWonStage) {
+    console.log(`[webhook] Deal ${dealId} WON — converting reservations and decrementing stock`);
 
-  for (const item of lineItems) {
-    const props = item.properties || {};
-    const hsProductId = props.hs_product_id;
-    const qty = parseInt(props.quantity, 10);
+    await convertReservationsToSale(portalIdStr, dealId);
 
-    if (!hsProductId || isNaN(qty) || qty <= 0) {
-      continue;
+    let lineItems;
+    try {
+      lineItems = await getLineItemsForDeal(portalIdStr, dealId);
+    } catch (err) {
+      console.error(`[webhook] Failed to fetch line items for deal ${dealId}:`, err.message);
+      return;
     }
 
-    await decrementStock(portalIdStr, hsProductId, qty, dealId);
+    for (const item of lineItems) {
+      const props = item.properties || {};
+      const hsProductId = props.hs_product_id;
+      const qty = parseInt(props.quantity, 10);
+      if (!hsProductId || isNaN(qty) || qty <= 0) continue;
+      await decrementStock(portalIdStr, hsProductId, qty, dealId);
+    }
+
+    console.log(`[webhook] Done processing won deal ${dealId} — ${lineItems.length} line items`);
+    return;
   }
 
-  console.log(`[webhook] Done processing deal ${dealId} — ${lineItems.length} line items`);
+  // --- DEAL LOST: release reservations ---
+  if (isLostStage) {
+    console.log(`[webhook] Deal ${dealId} LOST — releasing reservations`);
+    await releaseReservations(portalIdStr, dealId, 'lost');
+    return;
+  }
+
+  // --- RESERVATION LOGIC: based on probability threshold ---
+  const threshold = await getReservationThreshold(portalIdStr);
+  const dealProbability = probability !== null ? probability : 0;
+
+  if (dealProbability >= threshold) {
+    // Probability meets threshold — reserve line items
+    console.log(`[webhook] Deal ${dealId} probability ${dealProbability}% >= threshold ${threshold}% — reserving stock`);
+
+    let lineItems;
+    try {
+      lineItems = await getLineItemsForDeal(portalIdStr, dealId);
+    } catch (err) {
+      console.error(`[webhook] Failed to fetch line items for deal ${dealId}:`, err.message);
+      return;
+    }
+
+    const reservationItems = lineItems
+      .map((item) => {
+        const props = item.properties || {};
+        return {
+          hsProductId: props.hs_product_id,
+          sku: '',
+          quantity: parseInt(props.quantity, 10) || 0,
+        };
+      })
+      .filter((i) => i.hsProductId && i.quantity > 0);
+
+    if (reservationItems.length > 0) {
+      await reserveForDeal(portalIdStr, dealId, reservationItems);
+      console.log(`[webhook] Reserved ${reservationItems.length} products for deal ${dealId}`);
+    }
+  } else {
+    // Probability dropped below threshold — release any existing reservations
+    console.log(`[webhook] Deal ${dealId} probability ${dealProbability}% < threshold ${threshold}% — releasing reservations`);
+    await releaseReservations(portalIdStr, dealId, 'below_threshold');
+  }
 }
 
 module.exports = router;

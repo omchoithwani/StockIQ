@@ -135,4 +135,21 @@ async function getDealPipelinesAndStages(portalId) {
   return stages;
 }
 
-module.exports = { getValidToken, getProductsFromHubSpot, getLineItemsForDeal, getDealPipelinesAndStages };
+/**
+ * Fetches a deal's probability and dealstage from HubSpot.
+ */
+async function getDealProperties(portalId, dealId) {
+  const token = await getValidToken(portalId);
+  const response = await axios.get(`${HUBSPOT_API}/crm/v3/objects/deals/${dealId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    params: { properties: 'hs_deal_stage_probability,dealstage,dealname' },
+  });
+  const props = response.data.properties || {};
+  return {
+    probability: props.hs_deal_stage_probability ? parseFloat(props.hs_deal_stage_probability) * 100 : null,
+    dealstage: props.dealstage,
+    dealname: props.dealname,
+  };
+}
+
+module.exports = { getValidToken, getProductsFromHubSpot, getLineItemsForDeal, getDealPipelinesAndStages, getDealProperties };

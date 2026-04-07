@@ -66,9 +66,24 @@ async function initSchema() {
   `);
   await client.execute(`
     CREATE TABLE IF NOT EXISTS portal_settings (
-      portal_id         TEXT PRIMARY KEY,
-      trigger_stages    TEXT NOT NULL DEFAULT '[]',
-      updated_at        INTEGER NOT NULL,
+      portal_id                   TEXT PRIMARY KEY,
+      trigger_stages              TEXT NOT NULL DEFAULT '[]',
+      reservation_probability     INTEGER DEFAULT 80,
+      updated_at                  INTEGER NOT NULL,
+      FOREIGN KEY (portal_id) REFERENCES portals(portal_id)
+    )
+  `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS reservations (
+      id              TEXT PRIMARY KEY,
+      portal_id       TEXT NOT NULL,
+      deal_id         TEXT NOT NULL,
+      hs_product_id   TEXT NOT NULL,
+      sku             TEXT NOT NULL,
+      quantity        INTEGER NOT NULL,
+      status          TEXT NOT NULL DEFAULT 'active',
+      created_at      INTEGER NOT NULL,
+      updated_at      INTEGER NOT NULL,
       FOREIGN KEY (portal_id) REFERENCES portals(portal_id)
     )
   `);

@@ -10,6 +10,7 @@ const {
   getMovements,
 } = require('../services/stock');
 const { getLineItemsForDeal } = require('../services/hubspot');
+const { getReservedQty } = require('../services/reservations');
 
 const router = express.Router();
 
@@ -123,12 +124,17 @@ router.get('/:portalId/deal-line-items/:dealId', requirePortal, async (req, res)
         if (hsProductId) {
           stockData = await getProduct(req.portalId, hsProductId);
         }
+        const reserved = hsProductId ? await getReservedQty(req.portalId, hsProductId) : 0;
+        const stockOnHand = stockData ? stockData.quantity : null;
+        const available = stockOnHand !== null ? Math.max(0, stockOnHand - reserved) : null;
         return {
           hsProductId: hsProductId || null,
           name: props.name || stockData?.name || 'Unknown',
           sku: stockData?.sku || null,
           requested,
-          stockOnHand: stockData ? stockData.quantity : null,
+          stockOnHand,
+          reserved,
+          available,
           threshold: stockData ? stockData.low_stock_threshold : 10,
         };
       })
