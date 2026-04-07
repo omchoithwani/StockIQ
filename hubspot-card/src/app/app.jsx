@@ -12,6 +12,7 @@ import {
   hubspot,
 } from '@hubspot/ui-extensions';
 
+
 const BACKEND_BASE_URL = 'https://stockiq-n93y.onrender.com';
 
 function getStatusInfo(requested, available, onHand, threshold) {
@@ -44,9 +45,9 @@ function StockIQCard({ context, actions }) {
     setError(null);
 
     try {
-      const res = await hubspot.fetch(
+      const res = await fetch(
         `${BACKEND_BASE_URL}/api/stock/${portalId}/deal-line-items/${dealId}`,
-        { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+        { headers: { 'Content-Type': 'application/json' } }
       );
 
       if (!res.ok) throw new Error(`Backend returned ${res.status}`);
