@@ -8,6 +8,71 @@
 </head>
 <body class="bg-gray-50 min-h-screen">
 
+  <!-- Bulk Import Modal -->
+  <div id="importModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h2 class="text-lg font-semibold text-gray-900">Bulk Import</h2>
+        <button onclick="closeImport()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex border-b border-gray-100 px-6">
+        <button onclick="setImportTab('restock')" id="tabRestock"
+          class="px-4 py-2 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 -mb-px">Bulk Restock</button>
+        <button onclick="setImportTab('adjust')" id="tabAdjust"
+          class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">Bulk Adjust</button>
+      </div>
+
+      <div class="px-6 py-4 overflow-y-auto flex-1">
+        <!-- Instructions -->
+        <div id="importInstructions" class="mb-4">
+          <p id="importDesc" class="text-sm text-gray-600 mb-3"></p>
+          <div class="flex gap-2 mb-4">
+            <button onclick="downloadTemplate()" class="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+              ⬇ Download Template CSV
+            </button>
+            <button onclick="downloadExport()" class="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+              ⬇ Download Current Stock (pre-filled)
+            </button>
+          </div>
+
+          <!-- Upload area -->
+          <label for="csvFile"
+            class="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 text-gray-400 text-sm">
+            <svg class="w-7 h-7 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            Click to upload CSV or drag & drop
+            <input id="csvFile" type="file" accept=".csv" class="hidden" onchange="handleCsvUpload(event)" />
+          </label>
+        </div>
+
+        <!-- Preview table -->
+        <div id="previewSection" class="hidden">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-sm font-medium text-gray-700" id="previewTitle"></p>
+            <button onclick="clearPreview()" class="text-xs text-gray-400 hover:text-gray-600">Clear</button>
+          </div>
+          <div class="overflow-x-auto rounded-lg border border-gray-200">
+            <table class="w-full text-xs">
+              <thead class="bg-gray-50"><tr id="previewHead"></tr></thead>
+              <tbody id="previewBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="importResult" class="hidden mt-3 text-sm rounded-lg px-4 py-3"></div>
+      </div>
+
+      <div class="px-6 py-4 border-t border-gray-100 flex gap-2 justify-end">
+        <button onclick="closeImport()" class="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">Cancel</button>
+        <button onclick="confirmImport()" id="confirmImportBtn"
+          class="hidden px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+          Confirm Import
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Adjust Modal -->
   <div id="adjustModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
     <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
@@ -34,6 +99,12 @@
         <p id="portalBadge" class="text-sm text-gray-500 mt-1"></p>
       </div>
       <div class="flex gap-2">
+        <button onclick="downloadExport()" class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">
+          ⬇ Export CSV
+        </button>
+        <button onclick="openImport()" class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium">
+          ⬆ Import CSV
+        </button>
         <button id="syncBtn" onclick="syncProducts()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           Sync from HubSpot
@@ -57,11 +128,27 @@
     <!-- Stats -->
     <div id="statsRow" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6"></div>
 
+    <!-- Mass-select toolbar -->
+    <div id="massBar" class="hidden mb-3 flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2">
+      <span id="massCount" class="text-sm font-medium text-indigo-700"></span>
+      <span class="text-indigo-300">|</span>
+      <label class="text-sm text-indigo-700">Set threshold:
+        <input id="massThreshInput" type="number" min="0" value="10"
+          class="ml-1 w-16 border border-indigo-300 rounded px-2 py-0.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+      </label>
+      <button onclick="applyMassThreshold()" class="px-3 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Apply to Selected</button>
+      <button onclick="clearSelection()" class="ml-auto text-xs text-indigo-400 hover:text-indigo-600">Clear selection</button>
+    </div>
+
     <!-- Table -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
+            <th class="px-4 py-3 w-8">
+              <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"
+                class="w-4 h-4 rounded text-indigo-600 border-gray-300" />
+            </th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Product Name</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">SKU</th>
             <th class="text-right px-4 py-3 font-medium text-gray-600">On Hand</th>
@@ -75,7 +162,7 @@
         </thead>
         <tbody id="productTable">
           <tr>
-            <td colspan="9" class="text-center py-12 text-gray-400">Loading products…</td>
+            <td colspan="10" class="text-center py-12 text-gray-400">Loading products…</td>
           </tr>
         </tbody>
       </table>
@@ -142,12 +229,16 @@
 
         const tbody = document.getElementById('productTable');
         if (!products.length) {
-          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-12 text-gray-400">No products found. Click "Sync from HubSpot" to import.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="10" class="text-center py-12 text-gray-400">No products found. Click "Sync from HubSpot" to import.</td></tr>';
           return;
         }
 
         tbody.innerHTML = products.map(p => `
-          <tr class="border-t border-gray-100 hover:bg-gray-50">
+          <tr class="border-t border-gray-100 hover:bg-gray-50" id="row-${p.hs_product_id}">
+            <td class="px-4 py-3 w-8">
+              <input type="checkbox" value="${escHtml(p.hs_product_id)}" onchange="onRowCheck()"
+                class="row-check w-4 h-4 rounded text-indigo-600 border-gray-300" />
+            </td>
             <td class="px-4 py-3 font-medium text-gray-900">${escHtml(p.name)}</td>
             <td class="px-4 py-3 text-gray-500 font-mono text-xs">${escHtml(p.sku || '—')}</td>
             <td class="px-4 py-3 text-right font-semibold text-gray-800">${p.quantity}</td>
@@ -171,7 +262,7 @@
         `).join('');
       } catch (err) {
         document.getElementById('productTable').innerHTML =
-          `<tr><td colspan="9" class="text-center py-12 text-red-500">Error loading products: ${err.message}</td></tr>`;
+          `<tr><td colspan="10" class="text-center py-12 text-red-500">Error loading products: ${err.message}</td></tr>`;
       }
     }
 
@@ -298,6 +389,215 @@
       } catch (err) {
         cell.innerHTML = `<span class="text-red-500 text-xs" title="${err.message}">error</span>`;
         setTimeout(loadProducts, 1500);
+      }
+    }
+
+    // ── Export ──────────────────────────────────────────────────────────────
+    function downloadExport() {
+      window.location.href = `/api/stock/${portalId}/export`;
+    }
+
+    // ── Import modal ─────────────────────────────────────────────────────────
+    let importTab = 'restock';
+    let parsedRows = [];
+
+    const tabDescs = {
+      restock: 'Add stock to existing quantities. Required columns: <code>sku</code>, <code>quantity_to_add</code>.',
+      adjust:  'Set exact quantities. Required columns: <code>sku</code>, <code>new_quantity</code>. Optional: <code>threshold</code>.',
+    };
+
+    function openImport() {
+      document.getElementById('importModal').classList.remove('hidden');
+      setImportTab('restock');
+    }
+
+    function closeImport() {
+      document.getElementById('importModal').classList.add('hidden');
+      clearPreview();
+    }
+
+    function setImportTab(tab) {
+      importTab = tab;
+      document.getElementById('tabRestock').className = tab === 'restock'
+        ? 'px-4 py-2 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 -mb-px'
+        : 'px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px';
+      document.getElementById('tabAdjust').className = tab === 'adjust'
+        ? 'px-4 py-2 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 -mb-px'
+        : 'px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px';
+      document.getElementById('importDesc').innerHTML = tabDescs[tab];
+      clearPreview();
+    }
+
+    function downloadTemplate() {
+      const headers = importTab === 'restock'
+        ? 'sku,quantity_to_add'
+        : 'sku,new_quantity,threshold';
+      const blob = new Blob([headers + '\n'], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `stockiq-${importTab}-template.csv`;
+      a.click();
+    }
+
+    function handleCsvUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => parseCsv(e.target.result);
+      reader.readAsText(file);
+      event.target.value = ''; // reset so same file can be re-uploaded
+    }
+
+    function parseCsv(text) {
+      const lines = text.trim().split('\n').filter(Boolean);
+      if (lines.length < 2) return showImportResult('CSV must have a header row and at least one data row.', 'error');
+
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+      parsedRows = lines.slice(1).map(line => {
+        // simple CSV parse (handles quoted fields)
+        const vals = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) || [];
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = (vals[i] || '').replace(/^"|"$/g, '').trim(); });
+        return obj;
+      });
+
+      // Validate required columns
+      const requiredCols = importTab === 'restock' ? ['sku', 'quantity_to_add'] : ['sku', 'new_quantity'];
+      const missing = requiredCols.filter(c => !headers.includes(c));
+      if (missing.length) {
+        return showImportResult(`Missing required columns: ${missing.join(', ')}`, 'error');
+      }
+
+      renderPreview();
+    }
+
+    function renderPreview() {
+      const isRestock = importTab === 'restock';
+      const headCols = isRestock
+        ? ['SKU', 'Add Qty']
+        : ['SKU', 'New Qty', 'Threshold'];
+
+      document.getElementById('previewHead').innerHTML =
+        headCols.map(h => `<th class="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wide">${h}</th>`).join('');
+
+      document.getElementById('previewBody').innerHTML = parsedRows.map(row => {
+        if (isRestock) {
+          return `<tr class="border-t border-gray-100">
+            <td class="px-3 py-1.5 font-mono text-gray-700">${escHtml(row.sku || '')}</td>
+            <td class="px-3 py-1.5 text-green-600 font-semibold">+${escHtml(row.quantity_to_add || '0')}</td>
+          </tr>`;
+        } else {
+          return `<tr class="border-t border-gray-100">
+            <td class="px-3 py-1.5 font-mono text-gray-700">${escHtml(row.sku || '')}</td>
+            <td class="px-3 py-1.5 font-semibold text-gray-800">${escHtml(row.new_quantity || '—')}</td>
+            <td class="px-3 py-1.5 text-gray-500">${escHtml(row.threshold || '—')}</td>
+          </tr>`;
+        }
+      }).join('');
+
+      document.getElementById('previewTitle').textContent = `${parsedRows.length} row(s) ready to import`;
+      document.getElementById('previewSection').classList.remove('hidden');
+      document.getElementById('confirmImportBtn').classList.remove('hidden');
+      document.getElementById('importResult').classList.add('hidden');
+    }
+
+    function clearPreview() {
+      parsedRows = [];
+      document.getElementById('previewSection').classList.add('hidden');
+      document.getElementById('confirmImportBtn').classList.add('hidden');
+      document.getElementById('importResult').classList.add('hidden');
+      document.getElementById('csvFile').value = '';
+    }
+
+    async function confirmImport() {
+      const btn = document.getElementById('confirmImportBtn');
+      btn.disabled = true;
+      btn.textContent = 'Importing…';
+
+      const endpoint = importTab === 'restock' ? 'bulk-restock' : 'bulk-adjust';
+      try {
+        const res = await fetch(`/api/stock/${portalId}/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: parsedRows }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        let msg = `✅ ${data.updated} product(s) updated.`;
+        if (data.skipped?.length) msg += ` ⚠️ ${data.skipped.length} skipped: ${data.skipped.map(s => `${s.sku} (${s.reason})`).join(', ')}.`;
+        if (data.errors?.length) msg += ` ❌ ${data.errors.length} errors.`;
+        showImportResult(msg, data.errors?.length ? 'warning' : 'success');
+        clearPreview();
+        await loadProducts();
+      } catch (err) {
+        showImportResult(`Error: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirm Import';
+      }
+    }
+
+    function showImportResult(msg, type) {
+      const el = document.getElementById('importResult');
+      const colors = { success: 'bg-green-50 text-green-800 border border-green-200', error: 'bg-red-50 text-red-700 border border-red-200', warning: 'bg-yellow-50 text-yellow-800 border border-yellow-200' };
+      el.className = `mt-3 text-sm rounded-lg px-4 py-3 ${colors[type] || colors.success}`;
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    // ── Mass threshold ────────────────────────────────────────────────────────
+    function onRowCheck() {
+      const checked = document.querySelectorAll('.row-check:checked');
+      const bar = document.getElementById('massBar');
+      const selectAll = document.getElementById('selectAll');
+      const total = document.querySelectorAll('.row-check').length;
+      if (checked.length > 0) {
+        bar.classList.remove('hidden');
+        document.getElementById('massCount').textContent = `${checked.length} product${checked.length > 1 ? 's' : ''} selected`;
+      } else {
+        bar.classList.add('hidden');
+      }
+      selectAll.indeterminate = checked.length > 0 && checked.length < total;
+      selectAll.checked = checked.length === total;
+    }
+
+    function toggleSelectAll(cb) {
+      document.querySelectorAll('.row-check').forEach(c => { c.checked = cb.checked; });
+      onRowCheck();
+    }
+
+    function clearSelection() {
+      document.querySelectorAll('.row-check').forEach(c => { c.checked = false; });
+      document.getElementById('selectAll').checked = false;
+      document.getElementById('massBar').classList.add('hidden');
+    }
+
+    async function applyMassThreshold() {
+      const checked = document.querySelectorAll('.row-check:checked');
+      const threshold = parseInt(document.getElementById('massThreshInput').value, 10);
+      if (isNaN(threshold) || threshold < 0) return;
+
+      const rows = Array.from(checked).map(cb => ({ hs_product_id: cb.value, threshold }));
+      const btn = document.querySelector('#massBar button:first-of-type');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      try {
+        const res = await fetch(`/api/stock/${portalId}/bulk-threshold`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        clearSelection();
+        await loadProducts();
+      } catch (err) {
+        alert(`Error: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Apply to Selected';
       }
     }
 
