@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { db } = require('../db');
 const { getProductsFromHubSpot } = require('./hubspot');
+const { sendLowStockAlert, sendOutOfStockAlert } = require('./alerts');
 
 /**
  * Return all products for a portal, with reserved and available quantities joined in.
@@ -72,7 +73,10 @@ async function restockProduct(portalId, hsProductId, quantityReceived, reference
     args: [uuidv4(), portalId, hsProductId, product.sku, quantityReceived, newQty, reference || null, now],
   });
 
-  return { ...product, quantity: newQty };
+  const updated = { ...product, quantity: newQty };
+  // Fire low stock alert async — don't block the response
+  checkAndAlert(portalId, updated).catch(() => {});
+  return updated;
 }
 
 /**
@@ -97,7 +101,9 @@ async function adjustProduct(portalId, hsProductId, newQuantity, reason) {
     args: [uuidv4(), portalId, hsProductId, product.sku, change, newQuantity, reason || null, now],
   });
 
-  return { ...product, quantity: newQuantity };
+  const updated = { ...product, quantity: newQuantity };
+  checkAndAlert(portalId, updated).catch(() => {});
+  return updated;
 }
 
 /**
@@ -131,6 +137,25 @@ async function decrementStock(portalId, hsProductId, qty, dealId) {
           VALUES (?, ?, ?, ?, 'sale', ?, ?, ?, ?)`,
     args: [uuidv4(), portalId, hsProductId, product.sku, actualChange, newQty, dealId, now],
   });
+
+  const updated = { ...product, quantity: newQty };
+  if (newQty === 0) {
+    sendOutOfStockAlert(portalId, updated, dealId).catch(() => {});
+  } else {
+    checkAndAlert(portalId, updated).catch(() => {});
+  }
+}
+
+/**
+ * Check stock levels and fire alert if below threshold.
+ */
+async function checkAndAlert(portalId, product) {
+  const reserved = product.reserved ?? 0;
+  const available = Math.max(0, product.quantity - reserved);
+  const threshold = product.low_stock_threshold ?? 10;
+  if (available <= threshold && available > 0) {
+    await sendLowStockAlert(portalId, { ...product, available, reserved });
+  }
 }
 
 /**

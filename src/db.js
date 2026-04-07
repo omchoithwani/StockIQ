@@ -73,16 +73,22 @@ async function initSchema() {
       FOREIGN KEY (portal_id) REFERENCES portals(portal_id)
     )
   `);
-  // Migration: add reservation_probability column if it doesn't exist yet
-  try {
-    await client.execute(`ALTER TABLE portal_settings ADD COLUMN reservation_probability INTEGER DEFAULT 80`);
-    console.log('[db] Migrated: added reservation_probability column');
-  } catch (err) {
-    // Column already exists — safe to ignore
-    if (!err.message.includes('duplicate column')) {
-      console.log('[db] reservation_probability column already present');
+  // Migrations: add columns that didn't exist in earlier versions
+  const migrations = [
+    `ALTER TABLE portal_settings ADD COLUMN reservation_probability INTEGER DEFAULT 80`,
+    `ALTER TABLE portal_settings ADD COLUMN alert_email TEXT`,
+    `ALTER TABLE portal_settings ADD COLUMN alert_from_email TEXT`,
+    `ALTER TABLE portal_settings ADD COLUMN resend_api_key TEXT`,
+    `ALTER TABLE portal_settings ADD COLUMN slack_webhook_url TEXT`,
+  ];
+  for (const sql of migrations) {
+    try {
+      await client.execute(sql);
+    } catch (err) {
+      // Column already exists — safe to ignore
     }
   }
+  console.log('[db] Migrations checked');
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS reservations (
