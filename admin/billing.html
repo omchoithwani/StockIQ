@@ -178,7 +178,7 @@
       const config = configRes.ok ? await configRes.json() : {};
       const clientId = config.paypalClientId || '';
       if (!clientId) {
-        document.getElementById('paypalLoading').textContent = 'Payment not configured yet';
+        document.getElementById('paypalLoading').innerHTML = 'PayPal not configured — add <code>PAYPAL_CLIENT_ID</code> to your server environment.';
         return;
       }
 
