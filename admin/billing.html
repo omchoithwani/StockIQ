@@ -7,138 +7,123 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
-  <div class="max-w-4xl mx-auto px-4 py-12">
+  <div class="max-w-5xl mx-auto px-4 py-12">
 
     <!-- Header -->
-    <div class="text-center mb-10">
+    <div class="text-center mb-3">
       <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl mb-4">
         <span class="text-2xl">📦</span>
       </div>
       <h1 class="text-3xl font-bold text-gray-900">Choose your plan</h1>
-      <p id="trialBanner" class="hidden mt-2 text-sm font-medium text-indigo-600"></p>
-      <p id="currentPlanBanner" class="hidden mt-2 text-sm text-green-600 font-medium"></p>
+      <p class="text-gray-500 mt-2 text-sm">Start with a 14-day free trial. No credit card required.</p>
     </div>
 
-    <!-- Plan toggle -->
-    <div class="flex justify-center mb-8">
-      <div class="inline-flex bg-gray-100 rounded-xl p-1 text-sm">
-        <button onclick="setBilling('monthly')" id="btnMonthly"
-          class="px-5 py-2 rounded-lg font-medium bg-white shadow-sm text-gray-900 transition-all">Monthly</button>
-        <button onclick="setBilling('yearly')" id="btnYearly"
-          class="px-5 py-2 rounded-lg font-medium text-gray-500 transition-all">
-          Yearly <span class="ml-1 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">Save 17%</span>
-        </button>
-        <button onclick="setBilling('lifetime')" id="btnLifetime"
-          class="px-5 py-2 rounded-lg font-medium text-gray-500 transition-all">Lifetime</button>
-      </div>
-    </div>
+    <!-- Status banners -->
+    <div id="trialBanner" class="hidden text-center mb-6 text-sm font-medium text-indigo-600"></div>
+    <div id="currentPlanBanner" class="hidden text-center mb-6 text-sm font-medium text-green-600"></div>
 
-    <!-- Plans -->
+    <!-- 3 Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
-      <!-- Free / Trial -->
-      <div class="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Free Trial</p>
-        <p class="text-3xl font-bold text-gray-900 mb-1">$0</p>
-        <p class="text-sm text-gray-500 mb-6">14 days, no card required</p>
-        <ul class="space-y-2 text-sm text-gray-600 mb-8 flex-1">
-          <li class="flex gap-2"><span class="text-green-500">✓</span> Up to 25 products</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> Stock reservations</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> CRM card on deals</li>
-          <li class="flex gap-2"><span class="text-gray-300">✗</span> Email/Slack alerts</li>
-          <li class="flex gap-2"><span class="text-gray-300">✗</span> Bulk import/export</li>
-        </ul>
-        <div id="trialStatus" class="text-center text-sm text-gray-400 font-medium py-2 border border-dashed border-gray-200 rounded-xl">
-          Current plan
+      <!-- Monthly -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col shadow-sm">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Monthly</p>
+        <div class="mb-1">
+          <span class="text-4xl font-bold text-gray-900">$25</span>
+          <span class="text-gray-400 text-sm ml-1">/ month</span>
         </div>
+        <p class="text-sm text-gray-400 mb-6">Billed every month. Cancel anytime.</p>
+        <ul class="space-y-2.5 text-sm text-gray-600 mb-8 flex-1">
+          <li class="flex gap-2 items-center"><span class="text-indigo-500 font-bold">✓</span> Unlimited products</li>
+          <li class="flex gap-2 items-center"><span class="text-indigo-500 font-bold">✓</span> Stock reservations</li>
+          <li class="flex gap-2 items-center"><span class="text-indigo-500 font-bold">✓</span> CRM card on deals</li>
+          <li class="flex gap-2 items-center"><span class="text-indigo-500 font-bold">✓</span> Email + Slack alerts</li>
+          <li class="flex gap-2 items-center"><span class="text-indigo-500 font-bold">✓</span> Bulk CSV import/export</li>
+        </ul>
+        <div id="ppMonthly" class="min-h-[48px]"></div>
+        <div id="ppLoadingMonthly" class="hidden text-xs text-gray-400 text-center py-3"></div>
       </div>
 
-      <!-- Paid plan -->
-      <div class="bg-indigo-600 rounded-2xl p-6 flex flex-col relative overflow-hidden shadow-lg shadow-indigo-200">
-        <div class="absolute top-4 right-4 bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-          POPULAR
+      <!-- Yearly — highlighted -->
+      <div class="bg-indigo-600 rounded-2xl p-7 flex flex-col shadow-xl shadow-indigo-200 relative">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-gray-900 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+          Best Value
         </div>
-        <p class="text-xs font-semibold text-indigo-200 uppercase tracking-wide mb-2">StockIQ Pro</p>
-        <div id="priceDisplay">
-          <p class="text-3xl font-bold text-white mb-1">$25<span class="text-lg font-normal text-indigo-200">/mo</span></p>
-          <p class="text-sm text-indigo-200 mb-6">Billed monthly</p>
+        <p class="text-xs font-semibold text-indigo-200 uppercase tracking-widest mb-3">Yearly</p>
+        <div class="mb-1">
+          <span class="text-4xl font-bold text-white">$250</span>
+          <span class="text-indigo-300 text-sm ml-1">/ year</span>
         </div>
-        <ul class="space-y-2 text-sm text-indigo-100 mb-8 flex-1">
-          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Unlimited products</li>
-          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Stock reservations</li>
-          <li class="flex gap-2"><span class="text-white font-bold">✓</span> CRM card on deals</li>
-          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Email + Slack alerts</li>
-          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Bulk import/export</li>
-          <li class="flex gap-2"><span class="text-white font-bold">✓</span> Priority support</li>
+        <p class="text-sm text-indigo-300 mb-1">Billed once a year.</p>
+        <p class="text-xs text-amber-300 font-semibold mb-6">Save $50 vs monthly</p>
+        <ul class="space-y-2.5 text-sm text-indigo-100 mb-8 flex-1">
+          <li class="flex gap-2 items-center"><span class="text-white font-bold">✓</span> Everything in Monthly</li>
+          <li class="flex gap-2 items-center"><span class="text-white font-bold">✓</span> 2 months free</li>
+          <li class="flex gap-2 items-center"><span class="text-white font-bold">✓</span> Priority support</li>
         </ul>
-        <!-- PayPal button renders here -->
-        <div id="paypalButtonContainer" class="min-h-[48px]"></div>
-        <div id="paypalLoading" class="text-center text-indigo-200 text-sm py-3">Loading payment…</div>
+        <div id="ppYearly" class="min-h-[48px]"></div>
+        <div id="ppLoadingYearly" class="hidden text-xs text-indigo-300 text-center py-3"></div>
       </div>
 
-      <!-- Already on paid plan card -->
-      <div class="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">What's included</p>
-        <p class="text-3xl font-bold text-gray-900 mb-6">Everything</p>
-        <ul class="space-y-3 text-sm text-gray-600 flex-1">
-          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">📦</span> Real-time stock tracking synced from HubSpot</li>
-          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">🔒</span> Auto-reserve stock when deals reach your threshold</li>
-          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">🔔</span> Alerts via Email and Slack when stock runs low</li>
-          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">📊</span> CRM card showing live stock on every deal</li>
-          <li class="flex gap-2 items-start"><span class="text-indigo-600 mt-0.5">📥</span> Bulk import/export via CSV</li>
-        </ul>
-        <div class="mt-8 text-xs text-gray-400 text-center">
-          Questions? <a href="mailto:support@stockiq.app" class="text-indigo-500 hover:underline">Contact support</a>
+      <!-- Lifetime -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-7 flex flex-col shadow-sm">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Lifetime</p>
+        <div class="mb-1">
+          <span class="text-4xl font-bold text-gray-900">$499</span>
         </div>
+        <p class="text-sm text-gray-400 mb-6">One-time payment. Use forever.</p>
+        <ul class="space-y-2.5 text-sm text-gray-600 mb-8 flex-1">
+          <li class="flex gap-2 items-center"><span class="text-indigo-500 font-bold">✓</span> Everything in Yearly</li>
+          <li class="flex gap-2 items-center"><span class="text-indigo-500 font-bold">✓</span> All future updates</li>
+          <li class="flex gap-2 items-center"><span class="text-indigo-500 font-bold">✓</span> Never pay again</li>
+        </ul>
+        <div id="ppLifetime" class="min-h-[48px]"></div>
+        <div id="ppLoadingLifetime" class="hidden text-xs text-gray-400 text-center py-3"></div>
       </div>
+
     </div>
 
-    <!-- Active plan actions -->
-    <div id="activePlanActions" class="hidden text-center">
-      <a href="/account/dashboard" class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700">
+    <!-- Already on paid plan -->
+    <div id="activePlanActions" class="hidden text-center mt-4">
+      <a id="dashboardLink" href="/account/dashboard"
+        class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700">
         Go to Dashboard →
       </a>
-      <p class="text-xs text-gray-400 mt-3">
-        To cancel or change your subscription, manage it directly in your PayPal account.
-      </p>
+      <p class="text-xs text-gray-400 mt-3">To cancel, manage your subscription in PayPal.</p>
     </div>
 
-    <!-- Success message -->
-    <div id="successBanner" class="hidden mt-6 bg-green-50 border border-green-200 text-green-800 rounded-2xl px-6 py-4 text-center">
-      <p class="font-semibold text-lg">🎉 Payment successful!</p>
-      <p class="text-sm mt-1">Your plan is now active. <a href="/account/dashboard" class="underline font-medium">Go to dashboard →</a></p>
+    <!-- Payment success -->
+    <div id="successBanner" class="hidden mt-6 bg-green-50 border border-green-200 text-green-800 rounded-2xl px-6 py-5 text-center">
+      <p class="font-bold text-lg">🎉 Payment successful!</p>
+      <p class="text-sm mt-1">Your plan is now active. <a id="successLink" href="/account/dashboard" class="underline font-semibold">Go to dashboard →</a></p>
     </div>
+
+    <p class="text-center text-xs text-gray-400 mt-8">Questions? <a href="mailto:support@stockiq.app" class="text-indigo-500 hover:underline">Contact support</a></p>
   </div>
 
   <script>
     const PLANS = {
-      monthly:  { price: '$25/mo',  sub: 'Billed monthly',     amount: 25  },
-      yearly:   { price: '$250/yr', sub: 'Save $50 vs monthly', amount: 250 },
-      lifetime: { price: '$499',    sub: 'One-time payment',    amount: 499 },
+      monthly:  { label: 'Monthly',  amount: '25'  },
+      yearly:   { label: 'Yearly',   amount: '250' },
+      lifetime: { label: 'Lifetime', amount: '499' },
     };
 
-    let billingCycle = 'monthly';
     let portalId = new URLSearchParams(location.search).get('portal_id');
 
     async function init() {
-      // Load plan status — by portal_id (no session needed) or by session
       let plan = null, daysLeft = null, expired = false;
 
       if (portalId) {
         const res = await fetch('/account/plan-status?portal_id=' + encodeURIComponent(portalId));
         if (res.ok) {
-          const data = await res.json();
-          plan = data.plan;
-          daysLeft = data.daysLeft;
-          expired = data.expired;
+          const d = await res.json();
+          plan = d.plan; daysLeft = d.daysLeft; expired = d.expired;
         }
       } else {
-        // Fallback: session-based (came from account login)
         const res = await fetch('/account/me');
         if (res.ok) {
           const a = await res.json();
-          plan = a.plan;
-          portalId = a.portal_id;
+          plan = a.plan; portalId = a.portal_id;
           if (a.trial_ends_at) {
             daysLeft = Math.max(0, Math.ceil((a.trial_ends_at - Date.now()) / 86400000));
             expired = plan === 'trial' && Date.now() > a.trial_ends_at;
@@ -146,111 +131,76 @@
         }
       }
 
-      // Show trial status banner
       if (plan === 'trial') {
         const el = document.getElementById('trialBanner');
-        if (expired) {
-          el.textContent = '⏰ Your free trial has expired — upgrade to continue using StockIQ';
-          el.classList.remove('hidden');
-          document.getElementById('trialStatus').textContent = 'Expired';
-        } else if (daysLeft !== null) {
-          el.textContent = `✨ Your free trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`;
-          el.classList.remove('hidden');
-          document.getElementById('trialStatus').textContent = `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
-        }
+        el.textContent = expired
+          ? '⏰ Your free trial has expired — upgrade below to continue using StockIQ'
+          : `✨ Free trial active — ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
+        el.classList.remove('hidden');
       }
 
       if (['monthly', 'yearly', 'lifetime'].includes(plan)) {
-        const el = document.getElementById('currentPlanBanner');
-        el.textContent = `✅ You're on the ${plan} plan`;
-        el.classList.remove('hidden');
+        document.getElementById('currentPlanBanner').textContent = `✅ You're on the ${plan} plan`;
+        document.getElementById('currentPlanBanner').classList.remove('hidden');
+        setDashboardLinks();
         document.getElementById('activePlanActions').classList.remove('hidden');
-        document.getElementById('paypalLoading').textContent = 'Plan active';
-        // Update dashboard link to use portal_id
-        if (portalId) {
-          document.querySelector('#activePlanActions a').href = `/admin/products?portal_id=${portalId}`;
-        }
         return;
       }
 
-      // Load PayPal
-      const configRes = await fetch('/account/config');
-      const config = configRes.ok ? await configRes.json() : {};
-      const clientId = config.paypalClientId || '';
-      if (!clientId) {
-        document.getElementById('paypalLoading').innerHTML = 'PayPal not configured — add <code>PAYPAL_CLIENT_ID</code> to your server environment.';
+      // Load PayPal SDK
+      const cfgRes = await fetch('/account/config');
+      const cfg = cfgRes.ok ? await cfgRes.json() : {};
+      if (!cfg.paypalClientId) {
+        ['Monthly','Yearly','Lifetime'].forEach(p => {
+          const el = document.getElementById('ppLoading' + p);
+          el.textContent = 'PayPal not configured — add PAYPAL_CLIENT_ID env var.';
+          el.classList.remove('hidden');
+        });
         return;
       }
 
       const script = document.createElement('script');
-      script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD&intent=capture`;
-      script.onload = () => renderPayPalButton();
+      script.src = `https://www.paypal.com/sdk/js?client-id=${cfg.paypalClientId}&currency=USD&intent=capture`;
+      script.onload = renderAllButtons;
       document.head.appendChild(script);
     }
 
-    function setBilling(cycle) {
-      billingCycle = cycle;
-      ['monthly', 'yearly', 'lifetime'].forEach(c => {
-        const btn = document.getElementById(`btn${c.charAt(0).toUpperCase() + c.slice(1)}`);
-        if (c === cycle) {
-          btn.className = 'px-5 py-2 rounded-lg font-medium bg-white shadow-sm text-gray-900 transition-all';
-        } else {
-          btn.className = 'px-5 py-2 rounded-lg font-medium text-gray-500 transition-all';
-        }
+    function renderAllButtons() {
+      Object.entries(PLANS).forEach(([key, p]) => {
+        const containerId = 'pp' + p.label;
+        if (!document.getElementById(containerId)) return;
+        window.paypal.Buttons({
+          style: { layout: 'vertical', color: key === 'yearly' ? 'white' : 'gold', shape: 'rect', label: 'pay', height: 45 },
+          createOrder: (data, actions) => actions.order.create({
+            purchase_units: [{ description: `StockIQ — ${p.label}`, amount: { value: p.amount, currency_code: 'USD' } }],
+          }),
+          onApprove: async (data, actions) => {
+            const order = await actions.order.capture();
+            await activatePlan(key, order.id);
+          },
+          onError: () => alert('Payment failed. Please try again.'),
+        }).render('#' + containerId);
       });
-
-      const p = PLANS[cycle];
-      const isLifetime = cycle === 'lifetime';
-      document.getElementById('priceDisplay').innerHTML = isLifetime
-        ? `<p class="text-3xl font-bold text-white mb-1">${p.price}</p><p class="text-sm text-indigo-200 mb-6">${p.sub}</p>`
-        : `<p class="text-3xl font-bold text-white mb-1">${p.price.split('/')[0]}<span class="text-lg font-normal text-indigo-200">/${p.price.split('/')[1]}</span></p><p class="text-sm text-indigo-200 mb-6">${p.sub}</p>`;
-
-      renderPayPalButton();
     }
 
-    function renderPayPalButton() {
-      const container = document.getElementById('paypalButtonContainer');
-      const loading = document.getElementById('paypalLoading');
-      if (!window.paypal) return;
-
-      container.innerHTML = '';
-      loading.classList.add('hidden');
-
-      const plan = billingCycle;
-      const amount = String(PLANS[plan].amount);
-
-      window.paypal.Buttons({
-        style: { layout: 'vertical', color: 'gold', shape: 'pill', label: 'pay', height: 48 },
-        createOrder: (data, actions) => actions.order.create({
-          purchase_units: [{
-            description: `StockIQ Pro — ${plan}`,
-            amount: { value: amount, currency_code: 'USD' },
-          }],
-        }),
-        onApprove: async (data, actions) => {
-          const order = await actions.order.capture();
-          await activatePlan(plan, order.id, null, portalId);
-        },
-        onError: (err) => {
-          console.error('PayPal error:', err);
-          alert('Payment failed. Please try again.');
-        },
-      }).render('#paypalButtonContainer');
-    }
-
-    async function activatePlan(plan, orderId, subscriptionId, pid) {
+    async function activatePlan(plan, orderId) {
       const res = await fetch('/account/billing/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, paypal_order_id: orderId, paypal_subscription_id: subscriptionId, portal_id: pid }),
+        body: JSON.stringify({ plan, paypal_order_id: orderId, portal_id: portalId }),
       });
       if (res.ok) {
+        setDashboardLinks();
         document.getElementById('successBanner').classList.remove('hidden');
-        document.getElementById('paypalButtonContainer').innerHTML = '';
-        const dashLink = document.querySelector('#activePlanActions a');
-        if (pid) dashLink.href = `/admin/products?portal_id=${pid}`;
         document.getElementById('activePlanActions').classList.remove('hidden');
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
       }
+    }
+
+    function setDashboardLinks() {
+      const href = portalId ? `/admin/products?portal_id=${portalId}` : '/account/dashboard';
+      document.getElementById('dashboardLink').href = href;
+      document.getElementById('successLink').href = href;
     }
 
     init();
