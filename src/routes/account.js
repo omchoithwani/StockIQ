@@ -151,9 +151,13 @@ router.get('/plan-status', async (req, res) => {
   }
 });
 
-// GET /account/config — public config for frontend (PayPal client ID etc.)
+// GET /account/config — public config for frontend (PayPal client ID + plan IDs)
 router.get('/config', (req, res) => {
-  res.json({ paypalClientId: process.env.PAYPAL_CLIENT_ID || '' });
+  res.json({
+    paypalClientId: process.env.PAYPAL_CLIENT_ID || '',
+    paypalPlanMonthly: process.env.PAYPAL_PLAN_MONTHLY || '',
+    paypalPlanYearly: process.env.PAYPAL_PLAN_YEARLY || '',
+  });
 });
 
 // GET /account/me — return current account info (for billing page)

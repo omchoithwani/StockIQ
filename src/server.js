@@ -12,6 +12,7 @@ const reservationsRoutes = require('./routes/reservations');
 const slackRoutes = require('./routes/slack');
 const accountRoutes = require('./routes/account');
 const superadminRoutes = require('./routes/superadmin');
+const paypalRoutes = require('./routes/paypal');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,8 +29,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Parse JSON — webhook route needs raw body access for signature verification,
-// but express.json() is fine here since we re-compute the hash from parsed body.
+// PayPal webhook needs raw body — mount BEFORE express.json()
+app.use('/paypal', paypalRoutes);
+
+// Parse JSON
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

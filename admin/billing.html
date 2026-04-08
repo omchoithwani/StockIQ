@@ -206,47 +206,81 @@
       if (!cfg.paypalClientId) {
         ['Monthly','Yearly','Lifetime'].forEach(p => {
           const el = document.getElementById('ppLoading' + p);
-          el.innerHTML = '<span class="text-red-400">⚠ PayPal not configured — set <code class="bg-slate-100 px-1 rounded">PAYPAL_CLIENT_ID</code> env var</span>';
+          el.innerHTML = '<span class="text-red-400">⚠ PayPal not configured — set PAYPAL_CLIENT_ID env var</span>';
         });
         return;
       }
 
+      // Subscriptions need vault=true in the SDK URL
       const script = document.createElement('script');
-      script.src = `https://www.paypal.com/sdk/js?client-id=${cfg.paypalClientId}&currency=USD&intent=capture`;
-      script.onload = renderAllButtons;
+      script.src = `https://www.paypal.com/sdk/js?client-id=${cfg.paypalClientId}&currency=USD&intent=capture&vault=true`;
+      script.onload = () => renderAllButtons(cfg);
       document.head.appendChild(script);
     }
 
-    function renderAllButtons() {
-      Object.entries(PLANS).forEach(([key, p]) => {
-        const loadingEl = document.getElementById('ppLoading' + p.label);
-        if (loadingEl) loadingEl.classList.add('hidden');
-
-        window.paypal.Buttons({
-          style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay', height: 44 },
-          createOrder: (data, actions) => actions.order.create({
-            purchase_units: [{ description: `StockIQ — ${p.label}`, amount: { value: p.amount, currency_code: 'USD' } }],
-          }),
-          onApprove: async (data, actions) => {
-            const order = await actions.order.capture();
-            await activatePlan(key, order.id);
-          },
-          onError: () => alert('Payment failed. Please try again.'),
-        }).render('#pp' + p.label);
-      });
+    function renderAllButtons(cfg) {
+      renderSubscriptionButton('Monthly', cfg.paypalPlanMonthly);
+      renderSubscriptionButton('Yearly',  cfg.paypalPlanYearly);
+      renderOneTimeButton('Lifetime', '499');
     }
 
-    async function activatePlan(plan, orderId) {
+    function renderSubscriptionButton(label, planId) {
+      const loadingEl = document.getElementById('ppLoading' + label);
+      if (!planId) {
+        loadingEl.innerHTML = `<span class="text-amber-500">⚠ PAYPAL_PLAN_${label.toUpperCase()} not set</span>`;
+        return;
+      }
+      if (loadingEl) loadingEl.classList.add('hidden');
+
+      window.paypal.Buttons({
+        style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'subscribe', height: 44 },
+        createSubscription: (data, actions) => actions.subscription.create({ plan_id: planId }),
+        onApprove: async (data) => {
+          await activatePlan(label.toLowerCase(), null, data.subscriptionID);
+        },
+        onError: (err) => { console.error(err); alert('Payment failed. Please try again.'); },
+      }).render('#pp' + label);
+    }
+
+    function renderOneTimeButton(label, amount) {
+      const loadingEl = document.getElementById('ppLoading' + label);
+      if (loadingEl) loadingEl.classList.add('hidden');
+
+      window.paypal.Buttons({
+        style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay', height: 44 },
+        createOrder: (data, actions) => actions.order.create({
+          purchase_units: [{ description: `StockIQ — ${label}`, amount: { value: amount, currency_code: 'USD' } }],
+        }),
+        onApprove: async (data, actions) => {
+          const order = await actions.order.capture();
+          await activatePlan(label.toLowerCase(), order.id, null);
+        },
+        onError: (err) => { console.error(err); alert('Payment failed. Please try again.'); },
+      }).render('#pp' + label);
+    }
+
+    async function activatePlan(plan, orderId, subscriptionId) {
       const res = await fetch('/account/billing/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, paypal_order_id: orderId, portal_id: portalId }),
+        body: JSON.stringify({
+          plan,
+          paypal_order_id: orderId,
+          paypal_subscription_id: subscriptionId,
+          portal_id: portalId,
+        }),
       });
       if (res.ok) {
         setDashboardLinks();
         document.getElementById('successBanner').classList.remove('hidden');
         document.getElementById('activePlanActions').classList.remove('hidden');
+        ['Monthly','Yearly','Lifetime'].forEach(p => {
+          const w = document.getElementById('ppWrap' + p);
+          if (w) w.classList.add('hidden');
+        });
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      } else {
+        alert('Could not activate plan. Please contact support.');
       }
     }
 
