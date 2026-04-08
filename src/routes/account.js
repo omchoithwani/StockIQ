@@ -21,8 +21,8 @@ router.get('/login', (req, res) => {
   res.sendFile(path.join(PAGES, 'login.html'));
 });
 
-// GET /account/billing
-router.get('/billing', requireAccount, (req, res) => {
+// GET /account/billing — accessible without session (portal_id in URL handles auth)
+router.get('/billing', (req, res) => {
   res.sendFile(path.join(PAGES, 'billing.html'));
 });
 
@@ -131,6 +131,26 @@ router.post('/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
+// GET /account/plan-status?portal_id=xxx — public, no auth required
+router.get('/plan-status', async (req, res) => {
+  const { portal_id } = req.query;
+  if (!portal_id) return res.status(400).json({ error: 'portal_id required' });
+  try {
+    const result = await db.execute({
+      sql: 'SELECT plan, trial_ends_at FROM accounts WHERE portal_id = ?',
+      args: [portal_id],
+    });
+    if (result.rows.length === 0) return res.json({ plan: null });
+    const { plan, trial_ends_at } = result.rows[0];
+    const now = Date.now();
+    const expired = plan === 'trial' && trial_ends_at && now > trial_ends_at;
+    const daysLeft = trial_ends_at ? Math.max(0, Math.ceil((trial_ends_at - now) / 86400000)) : null;
+    res.json({ plan, daysLeft, expired: !!expired });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /account/config — public config for frontend (PayPal client ID etc.)
 router.get('/config', (req, res) => {
   res.json({ paypalClientId: process.env.PAYPAL_CLIENT_ID || '' });
@@ -147,17 +167,31 @@ router.get('/me', requireAccount, async (req, res) => {
 });
 
 // POST /account/billing/activate — called after PayPal payment success
-router.post('/billing/activate', requireAccount, async (req, res) => {
-  const { plan, paypal_order_id, paypal_subscription_id } = req.body;
+// Accepts session OR portal_id to identify the account
+router.post('/billing/activate', async (req, res) => {
+  const { plan, paypal_order_id, paypal_subscription_id, portal_id } = req.body;
   const validPlans = ['monthly', 'yearly', 'lifetime'];
   if (!validPlans.includes(plan)) {
     return res.status(400).json({ error: 'Invalid plan' });
   }
 
   try {
+    let accountId = req.session?.accountId;
+
+    if (!accountId && portal_id) {
+      const lookup = await db.execute({
+        sql: 'SELECT id FROM accounts WHERE portal_id = ?',
+        args: [portal_id],
+      });
+      if (lookup.rows.length === 0) return res.status(404).json({ error: 'Account not found' });
+      accountId = lookup.rows[0].id;
+    }
+
+    if (!accountId) return res.status(401).json({ error: 'Authentication required' });
+
     await db.execute({
       sql: `UPDATE accounts SET plan = ?, paypal_order_id = ?, paypal_subscription_id = ?, trial_ends_at = NULL, updated_at = ? WHERE id = ?`,
-      args: [plan, paypal_order_id || null, paypal_subscription_id || null, Date.now(), req.session.accountId],
+      args: [plan, paypal_order_id || null, paypal_subscription_id || null, Date.now(), accountId],
     });
     res.json({ ok: true, plan });
   } catch (err) {

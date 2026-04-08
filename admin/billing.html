@@ -118,33 +118,58 @@
     };
 
     let billingCycle = 'monthly';
-    let account = null;
+    let portalId = new URLSearchParams(location.search).get('portal_id');
 
     async function init() {
-      // Load account info
-      const res = await fetch('/account/me');
-      if (!res.ok) { window.location.href = '/account/login'; return; }
-      account = await res.json();
+      // Load plan status — by portal_id (no session needed) or by session
+      let plan = null, daysLeft = null, expired = false;
 
-      // Show trial status
-      if (account.plan === 'trial' && account.trial_ends_at) {
-        const daysLeft = Math.max(0, Math.ceil((account.trial_ends_at - Date.now()) / 86400000));
-        const el = document.getElementById('trialBanner');
-        el.textContent = daysLeft > 0
-          ? `✨ Your free trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`
-          : '⏰ Your free trial has expired';
-        el.classList.remove('hidden');
-
-        document.getElementById('trialStatus').textContent =
-          daysLeft > 0 ? `${daysLeft} days remaining` : 'Expired';
+      if (portalId) {
+        const res = await fetch('/account/plan-status?portal_id=' + encodeURIComponent(portalId));
+        if (res.ok) {
+          const data = await res.json();
+          plan = data.plan;
+          daysLeft = data.daysLeft;
+          expired = data.expired;
+        }
+      } else {
+        // Fallback: session-based (came from account login)
+        const res = await fetch('/account/me');
+        if (res.ok) {
+          const a = await res.json();
+          plan = a.plan;
+          portalId = a.portal_id;
+          if (a.trial_ends_at) {
+            daysLeft = Math.max(0, Math.ceil((a.trial_ends_at - Date.now()) / 86400000));
+            expired = plan === 'trial' && Date.now() > a.trial_ends_at;
+          }
+        }
       }
 
-      if (['monthly', 'yearly', 'lifetime'].includes(account.plan)) {
+      // Show trial status banner
+      if (plan === 'trial') {
+        const el = document.getElementById('trialBanner');
+        if (expired) {
+          el.textContent = '⏰ Your free trial has expired — upgrade to continue using StockIQ';
+          el.classList.remove('hidden');
+          document.getElementById('trialStatus').textContent = 'Expired';
+        } else if (daysLeft !== null) {
+          el.textContent = `✨ Your free trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`;
+          el.classList.remove('hidden');
+          document.getElementById('trialStatus').textContent = `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
+        }
+      }
+
+      if (['monthly', 'yearly', 'lifetime'].includes(plan)) {
         const el = document.getElementById('currentPlanBanner');
-        el.textContent = `✅ You're on the ${account.plan} plan`;
+        el.textContent = `✅ You're on the ${plan} plan`;
         el.classList.remove('hidden');
         document.getElementById('activePlanActions').classList.remove('hidden');
         document.getElementById('paypalLoading').textContent = 'Plan active';
+        // Update dashboard link to use portal_id
+        if (portalId) {
+          document.querySelector('#activePlanActions a').href = `/admin/products?portal_id=${portalId}`;
+        }
         return;
       }
 
@@ -204,7 +229,7 @@
         }),
         onApprove: async (data, actions) => {
           const order = await actions.order.capture();
-          await activatePlan(plan, order.id, null);
+          await activatePlan(plan, order.id, null, portalId);
         },
         onError: (err) => {
           console.error('PayPal error:', err);
@@ -213,15 +238,17 @@
       }).render('#paypalButtonContainer');
     }
 
-    async function activatePlan(plan, orderId, subscriptionId) {
+    async function activatePlan(plan, orderId, subscriptionId, pid) {
       const res = await fetch('/account/billing/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, paypal_order_id: orderId, paypal_subscription_id: subscriptionId }),
+        body: JSON.stringify({ plan, paypal_order_id: orderId, paypal_subscription_id: subscriptionId, portal_id: pid }),
       });
       if (res.ok) {
         document.getElementById('successBanner').classList.remove('hidden');
         document.getElementById('paypalButtonContainer').innerHTML = '';
+        const dashLink = document.querySelector('#activePlanActions a');
+        if (pid) dashLink.href = `/admin/products?portal_id=${pid}`;
         document.getElementById('activePlanActions').classList.remove('hidden');
       }
     }

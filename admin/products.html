@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
+<script src="/admin/plan-banner.js" defer></script>
 
   <!-- Bulk Import Modal -->
   <div id="importModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -119,6 +120,7 @@
       <a id="navMovements" href="#" class="text-gray-500 hover:text-gray-700">Movements</a>
       <a id="navReservations" href="#" class="text-gray-500 hover:text-gray-700">Reservations</a>
       <a id="navSettings" href="#" class="text-gray-500 hover:text-gray-700">Settings</a>
+      <a id="navBilling" href="#" class="text-gray-500 hover:text-gray-700">Billing</a>
     </div>
 
     <!-- Alerts -->
@@ -183,6 +185,7 @@
     document.getElementById('navMovements').href = `/admin/movements?portal_id=${portalId}`;
     document.getElementById('navReservations').href = `/admin/reservations?portal_id=${portalId}`;
     document.getElementById('navSettings').href = `/admin/settings?portal_id=${portalId}`;
+    document.getElementById('navBilling').href = `/account/billing?portal_id=${portalId}`;
 
     function statusBadge(product) {
       if (!product.is_active) return '<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Inactive</span>';
